@@ -379,6 +379,12 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 <div class="input-group"><label>From</label><input id="recap-week-start" type="date"/></div>
 <div class="input-group"><label>To</label><input id="recap-week-end" type="date"/></div>
 </div>
+<div class="input-group"><label>Rank By</label>
+<div class="pick-buttons" style="grid-template-columns:1fr 1fr">
+<button class="pick-btn selected" id="recap-mode-total" onclick="setRecapMode('total')">Total Points</button>
+<button class="pick-btn" id="recap-mode-average" onclick="setRecapMode('average')">Average / Game</button>
+</div>
+</div>
 <button class="admin-btn" style="background:#60a5fa" onclick="loadTopPerformersForRecap()">Find Top Performers</button>
 <div id="recap-top-performers-preview" style="margin-top:12px"></div>
 <div class="input-group" style="margin-top:14px"><label>Title</label><input id="recap-title" placeholder="e.g. Weekend Recap: July 4th Slugfest"/></div>
@@ -2202,7 +2208,37 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  // ─── News / Weekend Recap ───────────────────────────────────
- let recapTopPerformersCache = null;
+ let recapTopPerformersCache = null; // final ranked list actually used for publishing
+ let recapRawTotals = null; // unsorted per-card {points, games} so toggling mode doesn't need a re-fetch
+ let recapMode ='total';
+
+ function setRecapMode(mode) {
+ recapMode = mode;
+ document.getElementById('recap-mode-total').classList.toggle('selected', mode ==='total');
+ document.getElementById('recap-mode-average').classList.toggle('selected', mode ==='average');
+ if (recapRawTotals) renderRecapPreview(); // re-rank/re-render from cache, no need to hit the DB again
+ }
+
+ function renderRecapPreview() {
+ const previewEl = document.getElementById('recap-top-performers-preview');
+ const start = document.getElementById('recap-week-start').value;
+ const end = document.getElementById('recap-week-end').value;
+ const list = Object.values(recapRawTotals || {});
+ if (!list.length) { previewEl.innerHTML ='<div class="no-games">No synced games found in this date range.</div>'; recapTopPerformersCache = []; return; }
+
+ const withValue = list.map(r => ({ ...r, value: recapMode ==='average' ? (r.points / r.games) : r.points }));
+ const ranked = withValue.sort((a,b) => b.value - a.value).slice(0, 10);
+ recapTopPerformersCache = ranked.map(r => ({
+ player_name: r.player_name, team_name: r.team_name, position: r.position,
+ points: Math.round(r.value * 10) / 10, games: r.games, avg: recapMode ==='average'
+ }));
+
+ const unitLabel = recapMode ==='average' ?'avg/gm' :'pts';
+ previewEl.innerHTML = `<div class="card" style="background:#fff8d6;border-color:#f0dd80">
+ <div style="font-size:12px;color:#8a7300;font-weight:700;margin-bottom:8px">TOP PERFORMERS (${start} to ${end}) · ${recapMode ==='average' ?'Average / Game' :'Total Points'}</div>
+ ${ranked.map((r,i) => `<div class="stat-row"><span class="stat-label">#${i+1} ${escapeHtml(r.player_name)} <span style="color:#a0a0ae">${r.team_name?'· '+escapeHtml(r.team_name):''} (${r.games} gm${r.games===1?'':'s'})</span></span><span class="stat-val" style="color:#1e8a4c;font-weight:700">${r.value.toFixed(1)} ${unitLabel}</span></div>`).join('')}
+ </div>`;
+ }
 
  async function loadTopPerformersForRecap() {
  const start = document.getElementById('recap-week-start').value;
@@ -2219,23 +2255,23 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  .gte('game_date', start)
  .lte('game_date', end);
 
- if (!logs?.length) { previewEl.innerHTML ='<div class="no-games">No synced games found in this date range.</div>'; recapTopPerformersCache = []; return; }
+ if (!logs?.length) { previewEl.innerHTML ='<div class="no-games">No synced games found in this date range.</div>'; recapRawTotals = null; recapTopPerformersCache = []; return; }
 
- // Sum points per card across the whole range, then rank
+ // Sum points per card across the whole range, and count how many
+ // games each card actually appeared in — that game count is what
+ // "Average / Game" divides by, so a player who only played 1 game
+ // isn't ranked above someone consistent across the whole weekend
+ // purely because Total mode was left on by accident.
  const totals = {};
  for (const l of logs) {
  if (!l.player_cards) continue;
  const key = l.card_id;
- if (!totals[key]) totals[key] = { player_name: l.player_cards.player_name, team_name: l.player_cards.team_name, position: l.player_cards.position, points: 0 };
+ if (!totals[key]) totals[key] = { player_name: l.player_cards.player_name, team_name: l.player_cards.team_name, position: l.player_cards.position, points: 0, games: 0 };
  totals[key].points += (l.base_peels || 0);
+ totals[key].games += 1;
  }
- const ranked = Object.values(totals).sort((a,b) => b.points - a.points).slice(0, 10);
- recapTopPerformersCache = ranked;
-
- previewEl.innerHTML = `<div class="card" style="background:#fff8d6;border-color:#f0dd80">
- <div style="font-size:12px;color:#8a7300;font-weight:700;margin-bottom:8px">TOP PERFORMERS (${start} to ${end})</div>
- ${ranked.map((r,i) => `<div class="stat-row"><span class="stat-label">#${i+1} ${escapeHtml(r.player_name)} <span style="color:#a0a0ae">${r.team_name?'· '+escapeHtml(r.team_name):''}</span></span><span class="stat-val" style="color:#1e8a4c;font-weight:700">${r.points.toFixed(1)} pts</span></div>`).join('')}
- </div>`;
+ recapRawTotals = totals;
+ renderRecapPreview();
  } catch(e) {
  previewEl.innerHTML = `<div class="no-games">Error: ${e.message}</div>`;
  }
@@ -2280,6 +2316,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  document.getElementById('recap-body').value ='';
  document.getElementById('recap-top-performers-preview').innerHTML ='';
  recapTopPerformersCache = null;
+ recapRawTotals = null;
  toast(`Recap published and${allUsers?.length||0} users notified!`);
  }
 
@@ -2294,7 +2331,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const performersHtml = (p.top_performers && p.top_performers.length) ? `
  <div style="background:#fff8d6;border:1px solid #f0dd80;border-radius:10px;padding:12px;margin-top:12px">
  <div style="font-size:11px;color:#8a7300;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Top Performers</div>
- ${p.top_performers.map((r,i) => `<div class="stat-row"><span class="stat-label">#${i+1} ${escapeHtml(r.player_name)}</span><span class="stat-val" style="color:#1e8a4c;font-weight:700">${r.points.toFixed(1)} pts</span></div>`).join('')}
+ ${p.top_performers.map((r,i) => `<div class="stat-row"><span class="stat-label">#${i+1} ${escapeHtml(r.player_name)}</span><span class="stat-val" style="color:#1e8a4c;font-weight:700">${r.points.toFixed(1)} ${r.avg ?'avg/gm' :'pts'}</span></div>`).join('')}
  </div>` :'';
  return `<div class="card" style="margin-bottom:14px">
  <div style="font-size:11px;color:#9a9aa8;margin-bottom:4px">${dateRange}</div>
