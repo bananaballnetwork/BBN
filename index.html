@@ -930,7 +930,17 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  setTimeout(() =>showStarterCardPicker(data.user.id), 800);
  toast('Welcome! You have 100 Peels! Pick your free starter card');
  } else {
- const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email, password: pass }), 15000,'Sign in');
+ console.log('[diag] calling signInWithPassword at', new Date().toISOString());
+ const signInPromise = supabase.auth.signInWithPassword({ email, password: pass });
+ // Attached directly to the raw (un-raced) promise — this fires whenever
+ // the SDK call actually settles, even if that's well after our own
+ // 15-second timeout gives up. If this never logs at all, the call is
+ // truly hanging internally, not just running slow.
+ signInPromise.then(
+ r =>console.log('[diag] signInWithPassword RESOLVED at', new Date().toISOString(), r),
+ e =>console.log('[diag] signInWithPassword REJECTED at', new Date().toISOString(), e)
+ );
+ const { data, error } = await withTimeout(signInPromise, 15000,'Sign in');
  if (error) { setError('auth-error','Incorrect email or password.'); btn.textContent ='Sign In'; btn.disabled = false; return; }
  currentUser = data.user;
  const profile = await withTimeout(loadProfile(currentUser.id), 15000,'Loading profile');
