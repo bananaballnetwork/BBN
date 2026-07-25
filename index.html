@@ -887,6 +887,16 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  setError('auth-error','');
  }
 
+ // Wraps a promise so it can never hang forever — if it hasn't settled
+ // within ms, this rejects with a clear message instead of leaving
+ // whatever called it (e.g. the Sign In button) stuck indefinitely.
+ function withTimeout(promise, ms, label) {
+ return Promise.race([
+ promise,
+ new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out — check your connection and try again.`)), ms))
+ ]);
+ }
+
  async function authSubmit() {
  try {
  setError('auth-error','');
@@ -899,11 +909,11 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  if (isSignup) {
  const username = document.getElementById('auth-username').value.trim();
  if (!username) { setError('auth-error','Enter a username.'); btn.textContent ='Sign Up'; btn.disabled = false; return; }
- const { data, error } = await supabase.auth.signUp({ email, password: pass });
+ const { data, error } = await withTimeout(supabase.auth.signUp({ email, password: pass }), 15000,'Sign up');
  if (error) { setError('auth-error', error.message); btn.textContent ='Sign Up'; btn.disabled = false; return; }
  await supabase.from('profiles').insert({ id: data.user.id, username, peels: 100, is_admin: false });
  currentUser = data.user;
- const profile = await loadProfile(currentUser.id);
+ const profile = await withTimeout(loadProfile(currentUser.id), 15000,'Loading profile');
  if (profile) applyProfile(profile);
  renderUnifiedGamesPage();
  renderLeaderboard();
@@ -914,10 +924,10 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  setTimeout(() =>showStarterCardPicker(data.user.id), 800);
  toast('Welcome! You have 100 Peels! Pick your free starter card');
  } else {
- const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+ const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email, password: pass }), 15000,'Sign in');
  if (error) { setError('auth-error','Incorrect email or password.'); btn.textContent ='Sign In'; btn.disabled = false; return; }
  currentUser = data.user;
- const profile = await loadProfile(currentUser.id);
+ const profile = await withTimeout(loadProfile(currentUser.id), 15000,'Loading profile');
  if (profile) applyProfile(profile);
  renderUnifiedGamesPage();
  renderLeaderboard();
@@ -926,7 +936,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  }
  btn.textContent = isSignup ?'Sign Up' :'Sign In'; btn.disabled = false;
  } catch(e) {
- setError('auth-error','Error:' + e.message);
+ setError('auth-error', e.message ||'Something went wrong — please try again.');
  const btn = document.getElementById('auth-main-btn');
  btn.textContent = isSignup ?'Sign Up' :'Sign In'; btn.disabled = false;
  }
@@ -954,16 +964,20 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  if (!email) { setError('forgot-password-error','Enter your email first.'); return; }
  const btn = document.getElementById('forgot-password-btn');
  btn.textContent ='...'; btn.disabled = true;
+ try {
  // redirectTo brings them back to this same page — Supabase appends a
- // recovery token to the URL, which the onAuthStateChange listener in
- // boot() picks up as a PASSWORD_RECOVERY event and opens the reset modal.
- const { error } = await supabase.auth.resetPasswordForEmail(email, {
+ // recovery token to the URL, which boot() picks up and opens the reset modal.
+ const { error } = await withTimeout(supabase.auth.resetPasswordForEmail(email, {
  redirectTo: window.location.origin + window.location.pathname
- });
+ }), 15000,'Sending reset link');
  btn.textContent ='Send Link'; btn.disabled = false;
  if (error) { setError('forgot-password-error', error.message); return; }
  closeModal('forgot-password-modal');
  toast("If that email has an account, we've sent a reset link!");
+ } catch(e) {
+ btn.textContent ='Send Link'; btn.disabled = false;
+ setError('forgot-password-error', e.message ||'Something went wrong — please try again.');
+ }
  }
 
  async function submitNewPassword() {
@@ -974,13 +988,18 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  if (pass !== confirm) { setError('reset-password-error',"Passwords don't match."); return; }
  const btn = document.getElementById('reset-password-btn');
  btn.textContent ='...'; btn.disabled = true;
- const { error } = await supabase.auth.updateUser({ password: pass });
+ try {
+ const { error } = await withTimeout(supabase.auth.updateUser({ password: pass }), 15000,'Saving password');
  btn.textContent ='Save New Password'; btn.disabled = false;
  if (error) { setError('reset-password-error', error.message); return; }
  closeModal('reset-password-modal');
  toast('Password updated! You\'re signed in.');
  // Clean the recovery token out of the URL bar
  window.history.replaceState({}, document.title, window.location.pathname);
+ } catch(e) {
+ btn.textContent ='Save New Password'; btn.disabled = false;
+ setError('reset-password-error', e.message ||'Something went wrong — please try again.');
+ }
  }
 
  async function submitAdminLogin() {
