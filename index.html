@@ -930,17 +930,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  setTimeout(() =>showStarterCardPicker(data.user.id), 800);
  toast('Welcome! You have 100 Peels! Pick your free starter card');
  } else {
- console.log('[diag] calling signInWithPassword at', new Date().toISOString());
- const signInPromise = sb.auth.signInWithPassword({ email, password: pass });
- // Attached directly to the raw (un-raced) promise — this fires whenever
- // the SDK call actually settles, even if that's well after our own
- // 15-second timeout gives up. If this never logs at all, the call is
- // truly hanging internally, not just running slow.
- signInPromise.then(
- r =>console.log('[diag] signInWithPassword RESOLVED at', new Date().toISOString(), r),
- e =>console.log('[diag] signInWithPassword REJECTED at', new Date().toISOString(), e)
- );
- const { data, error } = await withTimeout(signInPromise, 15000,'Sign in');
+ const { data, error } = await withTimeout(sb.auth.signInWithPassword({ email, password: pass }), 15000,'Sign in');
  if (error) { setError('auth-error','Incorrect email or password.'); btn.textContent ='Sign In'; btn.disabled = false; return; }
  currentUser = data.user;
  const profile = await withTimeout(loadProfile(currentUser.id), 15000,'Loading profile');
@@ -2721,12 +2711,12 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
 
  async function renderAdminPlayers() {
  const el = document.getElementById('admin-players-list');
- const { data } = await sb.from('profiles').select('id, username, peels').eq('is_admin', false).order('peels', { ascending: false });
+ const { data } = await sb.from('profiles').select('id, username, peels, last_opened_at').eq('is_admin', false).order('peels', { ascending: false });
  const players = data || [];
  if (!players.length) { el.innerHTML ='<div class="no-games" style="padding:12px">No players yet.</div>'; return; }
  el.innerHTML = players.map(u =>`
 <div class="admin-game-item">
-<div class="admin-game-info"><strong>${u.username}</strong></div>
+<div class="admin-game-info"><strong>${u.username}</strong><small style="color:#8a8a96">Last opened:${u.last_opened_at ? new Date(u.last_opened_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) :'Never'}</small></div>
 <div style="display:flex;align-items:center;gap:8px">
 <span style="font-family:'Bangers',cursive;color:#9a8200;font-size:16px">${Math.round(u.peels)}</span>
 <button class="result-btn" style="padding:5px 10px;font-size:12px" onclick="adjustPeels('${u.id}','${u.username}')">Adjust</button>
@@ -3618,6 +3608,16 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  document.getElementById('reset-password-modal').style.display ='flex';
  }
 
+ // Fire-and-forget — tracks when someone actually has the app open with a
+ // valid session, whether that's a fresh sign-in or (far more often) a
+ // session silently restored from a saved login. Deliberately separate
+ // from "last signed in", since a saved password means most opens never
+ // touch the sign-in form at all.
+ function recordLastOpened(userId) {
+ sb.from('profiles').update({ last_opened_at: new Date().toISOString() }).eq('id', userId)
+ .then(({ error }) => { if (error) console.error('recordLastOpened error:', error); });
+ }
+
  async function boot() {
  try {
  const recoveryLink = isRecoveryLink();
@@ -3627,6 +3627,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  sb.auth.onAuthStateChange(async (event, session) =>{
  if (event ==='PASSWORD_RECOVERY' && session?.user) {
  currentUser = session.user;
+ recordLastOpened(currentUser.id);
  const profile = await loadProfile(currentUser.id);
  if (profile) applyProfile(profile);
  renderUnifiedGamesPage();
@@ -3634,6 +3635,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  openResetPasswordModal();
  } else if (event ==='SIGNED_IN' && session?.user) {
  currentUser = session.user;
+ recordLastOpened(currentUser.id);
  const profile = await loadProfile(currentUser.id);
  if (profile) { applyProfile(profile); renderUnifiedGamesPage(); renderLeaderboard(); checkUnreadNotifications(); checkTriviaDot(); }
  if (recoveryLink) openResetPasswordModal();
@@ -3661,6 +3663,9 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  const { data: { session } } = await sb.auth.getSession();
  if (session?.user) {
  currentUser = session.user;
+ // This is the path that matters most: a session restored from a saved
+ // login, with no sign-in form and no SIGNED_IN event involved at all.
+ recordLastOpened(currentUser.id);
  const profile = await loadProfile(currentUser.id);
  if (profile) { applyProfile(profile); checkUnreadNotifications(); checkTriviaDot(); }
  // Belt-and-suspenders: if the link says this is a recovery flow and we
