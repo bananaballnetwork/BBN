@@ -717,7 +717,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  const ADMIN_CODE ='bananas2024'; // Change this to whatever you want
  const HOUSE_EDGE = 0.05;
 
- const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
  let currentUser = null;
  let currentProfile = null;
@@ -777,7 +777,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  const peels = parseInt(document.getElementById('bot-peels').value) || 100;
  if (!name) { toast('Enter a bot name.'); return; }
  const fakeId = crypto.randomUUID ? crypto.randomUUID() :'bot-' + Date.now() +'-' + Math.random().toString(36).slice(2);
- const { error } = await supabase.from('profiles').insert({
+ const { error } = await sb.from('profiles').insert({
  id: fakeId, username: name, peels, is_admin: false, is_bot: true
  });
  if (error) { toast('Error adding bot:' + error.message); return; }
@@ -791,7 +791,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  async function renderAdminBots() {
  const el = document.getElementById('admin-bots-list');
  if (!el) return;
- const { data: bots } = await supabase.from('profiles').select('id, username, peels').eq('is_bot', true).order('username');
+ const { data: bots } = await sb.from('profiles').select('id, username, peels').eq('is_bot', true).order('username');
  if (!bots?.length) { el.innerHTML ='<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No bots yet</div>'; return; }
  el.innerHTML = bots.map(b =>`
 <div class="admin-game-item">
@@ -809,7 +809,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  if (adjustBtn) {
  const newVal = prompt('Set new Peels amount for' + adjustBtn.dataset.botName +':');
  if (newVal !== null && !isNaN(parseFloat(newVal))) {
- supabase.from('profiles').update({ peels: Math.round(parseFloat(newVal)) }).eq('id', adjustBtn.dataset.botId).then(() =>{
+ sb.from('profiles').update({ peels: Math.round(parseFloat(newVal)) }).eq('id', adjustBtn.dataset.botId).then(() =>{
  toast('Bot updated!');
  renderAdminBots();
  renderLeaderboard();
@@ -820,7 +820,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  const deleteBtn = e.target.closest('.bot-delete-btn');
  if (deleteBtn) {
  if (confirm('Remove this bot from the leaderboard?')) {
- supabase.from('profiles').delete().eq('id', deleteBtn.dataset.botId).then(() =>{
+ sb.from('profiles').delete().eq('id', deleteBtn.dataset.botId).then(() =>{
  toast('Bot removed.');
  renderAdminBots();
  renderLeaderboard();
@@ -915,9 +915,9 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  if (isSignup) {
  const username = document.getElementById('auth-username').value.trim();
  if (!username) { setError('auth-error','Enter a username.'); btn.textContent ='Sign Up'; btn.disabled = false; return; }
- const { data, error } = await withTimeout(supabase.auth.signUp({ email, password: pass }), 15000,'Sign up');
+ const { data, error } = await withTimeout(sb.auth.signUp({ email, password: pass }), 15000,'Sign up');
  if (error) { setError('auth-error', error.message); btn.textContent ='Sign Up'; btn.disabled = false; return; }
- await supabase.from('profiles').insert({ id: data.user.id, username, peels: 100, is_admin: false });
+ await sb.from('profiles').insert({ id: data.user.id, username, peels: 100, is_admin: false });
  currentUser = data.user;
  const profile = await withTimeout(loadProfile(currentUser.id), 15000,'Loading profile');
  if (profile) applyProfile(profile);
@@ -931,7 +931,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  toast('Welcome! You have 100 Peels! Pick your free starter card');
  } else {
  console.log('[diag] calling signInWithPassword at', new Date().toISOString());
- const signInPromise = supabase.auth.signInWithPassword({ email, password: pass });
+ const signInPromise = sb.auth.signInWithPassword({ email, password: pass });
  // Attached directly to the raw (un-raced) promise — this fires whenever
  // the SDK call actually settles, even if that's well after our own
  // 15-second timeout gives up. If this never logs at all, the call is
@@ -983,7 +983,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  try {
  // redirectTo brings them back to this same page — Supabase appends a
  // recovery token to the URL, which boot() picks up and opens the reset modal.
- const { error } = await withTimeout(supabase.auth.resetPasswordForEmail(email, {
+ const { error } = await withTimeout(sb.auth.resetPasswordForEmail(email, {
  redirectTo: window.location.origin + window.location.pathname
  }), 15000,'Sending reset link');
  btn.textContent ='Send Link'; btn.disabled = false;
@@ -1005,7 +1005,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  const btn = document.getElementById('reset-password-btn');
  btn.textContent ='...'; btn.disabled = true;
  try {
- const { error } = await withTimeout(supabase.auth.updateUser({ password: pass }), 15000,'Saving password');
+ const { error } = await withTimeout(sb.auth.updateUser({ password: pass }), 15000,'Saving password');
  btn.textContent ='Save New Password'; btn.disabled = false;
  if (error) { setError('reset-password-error', error.message); return; }
  closeModal('reset-password-modal');
@@ -1039,7 +1039,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  }
 
  async function loadProfile(userId) {
- const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+ const { data } = await sb.from('profiles').select('*').eq('id', userId).single();
  return data;
  }
 
@@ -1117,7 +1117,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 
  const themeColor = (favoriteTeam && pendingThemeChoice === true) ? (teamColorsFor(favoriteTeam)?.primary || null) : null;
 
- const { error } = await supabase.from('profiles').update({
+ const { error } = await sb.from('profiles').update({
  username, favorite_team: favoriteTeam, theme_color: themeColor
  }).eq('id', currentUser.id);
 
@@ -1185,7 +1185,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  async function logout() {
  closeModal('logout-modal');
  try {
- await supabase.auth.signOut();
+ await sb.auth.signOut();
  } catch(e) {
  toast('Error signing out:' + e.message);
  }
@@ -1270,7 +1270,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  if (seen.includes(page)) return;
  const updated = [...seen, page];
  currentProfile.seen_tab_explainers = updated;
- await supabase.from('profiles').update({ seen_tab_explainers: updated }).eq('id', currentUser.id);
+ await sb.from('profiles').update({ seen_tab_explainers: updated }).eq('id', currentUser.id);
  }
 
  function renderHelpPage() {
@@ -1287,7 +1287,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  // ─── Notifications ───────────────────────────────────────────
  async function checkUnreadNotifications() {
  if (!currentUser) return;
- const { count } = await supabase.from('notifications').select('id', { count:'exact', head: true }).eq('user_id', currentUser.id).eq('read', false);
+ const { count } = await sb.from('notifications').select('id', { count:'exact', head: true }).eq('user_id', currentUser.id).eq('read', false);
  const hasUnread = (count || 0) >0;
  const dot1 = document.getElementById('notif-dot');
  const dot2 = document.getElementById('notif-dot-menu');
@@ -1304,7 +1304,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  const el = document.getElementById('notifications-list');
  el.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
 
- const { data: notifs } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
+ const { data: notifs } = await sb.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
 
  if (!notifs?.length) {
  el.innerHTML ='<div class="no-games">No notifications yet. Place a bet or open a pack to get started!</div>';
@@ -1323,7 +1323,7 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  // Mark all as read
  const unreadIds = notifs.filter(n => !n.read).map(n => n.id);
  if (unreadIds.length) {
- await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
+ await sb.from('notifications').update({ read: true }).in('id', unreadIds);
  checkUnreadNotifications();
  }
  }
@@ -1357,36 +1357,36 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  // Picks (and caches in trivia_daily) the question everyone sees today.
  async function getTodayTriviaQuestion() {
  const today = triviaToday();
- const { data: existing } = await supabase.from('trivia_daily').select('question_id').eq('trivia_date', today).maybeSingle();
+ const { data: existing } = await sb.from('trivia_daily').select('question_id').eq('trivia_date', today).maybeSingle();
  let questionId = existing?.question_id;
 
  if (!questionId) {
  // Prefer a question that hasn't been used yet
- let { data: pool } = await supabase.from('trivia_questions').select('id').eq('used', false).limit(50);
+ let { data: pool } = await sb.from('trivia_questions').select('id').eq('used', false).limit(50);
  if (!pool?.length) {
  // Bank exhausted — start the rotation over
- await supabase.from('trivia_questions').update({ used: false }).eq('used', true);
- const retry = await supabase.from('trivia_questions').select('id').eq('used', false).limit(50);
+ await sb.from('trivia_questions').update({ used: false }).eq('used', true);
+ const retry = await sb.from('trivia_questions').select('id').eq('used', false).limit(50);
  pool = retry.data;
  }
  if (!pool?.length) return null; // no questions in the bank at all
 
  const pick = pool[Math.floor(Math.random() * pool.length)];
  // onConflict lets a race between two simultaneous visitors resolve to one winner
- const { data: inserted } = await supabase.from('trivia_daily')
+ const { data: inserted } = await sb.from('trivia_daily')
  .upsert({ trivia_date: today, question_id: pick.id }, { onConflict:'trivia_date', ignoreDuplicates: true })
  .select().maybeSingle();
  questionId = inserted?.question_id;
  if (!questionId) {
  // Someone else won the race — read back whichever question got saved
- const { data: reread } = await supabase.from('trivia_daily').select('question_id').eq('trivia_date', today).maybeSingle();
+ const { data: reread } = await sb.from('trivia_daily').select('question_id').eq('trivia_date', today).maybeSingle();
  questionId = reread?.question_id;
  } else {
- await supabase.from('trivia_questions').update({ used: true }).eq('id', questionId);
+ await sb.from('trivia_questions').update({ used: true }).eq('id', questionId);
  }
  }
  if (!questionId) return null;
- const { data: question } = await supabase.from('trivia_questions').select('*').eq('id', questionId).single();
+ const { data: question } = await sb.from('trivia_questions').select('*').eq('id', questionId).single();
  return question || null;
  }
 
@@ -1394,7 +1394,7 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  if (!currentUser) return;
  const dot = document.getElementById('trivia-dot-menu');
  if (!dot) return;
- const { data } = await supabase.from('trivia_attempts').select('id').eq('user_id', currentUser.id).eq('trivia_date', triviaToday()).maybeSingle();
+ const { data } = await sb.from('trivia_attempts').select('id').eq('user_id', currentUser.id).eq('trivia_date', triviaToday()).maybeSingle();
  dot.style.display = data ?'none' :'inline-block';
  }
 
@@ -1421,14 +1421,14 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  triviaAnswered = false;
  triviaSelectedOption = null;
 
- const { data: attempt } = await supabase.from('trivia_attempts').select('*').eq('user_id', currentUser.id).eq('trivia_date', triviaToday()).maybeSingle();
+ const { data: attempt } = await sb.from('trivia_attempts').select('*').eq('user_id', currentUser.id).eq('trivia_date', triviaToday()).maybeSingle();
 
  if (attempt) {
  const bailedEarly = !attempt.answered_at;
  if (bailedEarly && (currentProfile?.trivia_streak || 0) !== 0) {
  // They started but never finished — that's a loss, so the streak
  // display shouldn't still show yesterday's number.
- await supabase.from('profiles').update({ trivia_streak: 0 }).eq('id', currentUser.id);
+ await sb.from('profiles').update({ trivia_streak: 0 }).eq('id', currentUser.id);
  currentProfile.trivia_streak = 0;
  }
  const headline = attempt.correct
@@ -1473,7 +1473,7 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  // already exists with correct:false, so there's nothing left to "undo"
  // if they never come back to finish. Far more reliable than trying to
  // catch a reload/close event, which mobile browsers often don't fire.
- const { error: reserveError } = await supabase.from('trivia_attempts').insert({
+ const { error: reserveError } = await sb.from('trivia_attempts').insert({
  user_id: currentUser.id, trivia_date: today, question_id: q.id,
  started_at: new Date().toISOString(), selected_option: null, correct: false, peels_awarded: 0
  });
@@ -1559,20 +1559,20 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  // Update the reservation row placed when they hit Start, rather than
  // inserting a new one — the unique(user_id, trivia_date) constraint
  // means only that row exists for today.
- await supabase.from('trivia_attempts').update({
+ await sb.from('trivia_attempts').update({
  answered_at: new Date().toISOString(), selected_option: selected, correct, peels_awarded: reward
  }).eq('user_id', currentUser.id).eq('trivia_date', today);
 
  const profileUpdate = { trivia_streak: newStreak };
  if (correct) { profileUpdate.trivia_last_correct_date = today; profileUpdate.peels = Math.round((currentProfile?.peels || 0) + reward); }
- await supabase.from('profiles').update(profileUpdate).eq('id', currentUser.id);
+ await sb.from('profiles').update(profileUpdate).eq('id', currentUser.id);
  currentProfile.trivia_streak = newStreak;
  if (correct) currentProfile.trivia_last_correct_date = today;
  if (correct) currentProfile.peels = profileUpdate.peels;
  await refreshHeader();
 
  if (correct) {
- await supabase.from('notifications').insert({
+ await sb.from('notifications').insert({
  user_id: currentUser.id, type:'trivia', title:'🎯 Trivia Correct!',
  body: `+${reward} Peels · 🔥${newStreak}-day streak`, read: false
  });
@@ -1593,7 +1593,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const correct = document.getElementById('tq-correct').value;
  if (!question || !a || !b || !c || !d) { setError('tq-error','Fill in the question and all four options.'); return; }
 
- const { error } = await supabase.from('trivia_questions').insert({
+ const { error } = await sb.from('trivia_questions').insert({
  question, option_a: a, option_b: b, option_c: c, option_d: d, correct_option: correct
  });
  if (error) { setError('tq-error', error.message); return; }
@@ -1607,7 +1607,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  async function renderTriviaBankList() {
  const el = document.getElementById('trivia-bank-list');
  if (!el) return;
- const { data: questions } = await supabase.from('trivia_questions').select('*').order('created_at', { ascending: false }).limit(100);
+ const { data: questions } = await sb.from('trivia_questions').select('*').order('created_at', { ascending: false }).limit(100);
  if (!questions?.length) { el.innerHTML ='<div class="no-games" style="padding:12px">No questions yet — add one above.</div>'; return; }
  el.innerHTML = `<div style="font-size:12px;color:#8a8a96;margin-bottom:8px">${questions.filter(q =>!q.used).length} unused ·${questions.filter(q =>q.used).length} used</div>` +
  questions.map(q => `
@@ -1621,7 +1621,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function deleteTriviaQuestion(id) {
- await supabase.from('trivia_questions').delete().eq('id', id);
+ await sb.from('trivia_questions').delete().eq('id', id);
  toast('Question deleted.');
  renderTriviaBankList();
  }
@@ -1697,7 +1697,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  <div id="games-list-unified"><div class="loading"><span class="spinner"></span>Loading games...</div></div>`;
  const listEl = document.getElementById('games-list-unified');
 
- const { data: games } = await supabase.from('games').select('*').order('game_date', { ascending: true });
+ const { data: games } = await sb.from('games').select('*').order('game_date', { ascending: true });
  if (!games || !games.length) { listEl.innerHTML ='<div class="no-games">No games right now.<br>Check back soon!</div>'; return; }
 
  // Determine which date to show: explicitly selected, or default to the most recent game's date
@@ -1778,7 +1778,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function openGameDetail(gameId) {
- const { data: game } = await supabase.from('games').select('*').eq('id', gameId).single();
+ const { data: game } = await sb.from('games').select('*').eq('id', gameId).single();
  if (!game) { toast('Game not found'); return; }
  currentGameDetail = game;
  const el = document.getElementById('page-games');
@@ -1841,7 +1841,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
 
  let userBet = null;
  if (currentUser) {
- const { data } = await supabase.from('bets').select('*').eq('user_id', currentUser.id).eq('game_id', g.id).maybeSingle();
+ const { data } = await sb.from('bets').select('*').eq('user_id', currentUser.id).eq('game_id', g.id).maybeSingle();
  userBet = data;
  }
 
@@ -1932,13 +1932,13 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const potential = Math.round(wagerRounded * pick.odds);
  const newPeels = Math.round(currentProfile.peels - wagerRounded);
 
- const { error: betError } = await supabase.from('bets').insert({
+ const { error: betError } = await sb.from('bets').insert({
  user_id: currentUser.id, game_id: gameId, pick: pick.team,
  odds: pick.odds, wager: wagerRounded, status:'pending', potential
  });
  if (betError) { toast('Error placing bet. Try again.'); if (btn) { btn.disabled = false; btn.textContent ='Place Bet'; } return; }
 
- await supabase.from('profiles').update({ peels: newPeels }).eq('id', currentUser.id);
+ await sb.from('profiles').update({ peels: newPeels }).eq('id', currentUser.id);
  currentProfile.peels = newPeels;
 
  await refreshHeader();
@@ -2030,7 +2030,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const teams = await fetchTeamStats();
  if (!teams.length) return [];
 
- const { data: statusRows } = await supabase.from('team_playoff_status').select('*');
+ const { data: statusRows } = await sb.from('team_playoff_status').select('*');
  const statusByName = {};
  for (const s of (statusRows || [])) statusByName[s.team_name.toLowerCase().trim()] = s.status;
  const statusFor = (name) => statusByName[(name||'').toLowerCase().trim()] || 'contending';
@@ -2099,13 +2099,13 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  el.innerHTML ='<div class="loading"><span class="spinner"></span>Calculating odds...</div>';
 
  // Check if championship is already resolved
- const { data: champState } = await supabase.from('championship_state').select('*').eq('id', 1).maybeSingle();
+ const { data: champState } = await sb.from('championship_state').select('*').eq('id', 1).maybeSingle();
 
  // Show user's existing bet, if any
  const myBetEl = document.getElementById('championship-my-bet');
  myBetEl.innerHTML ='';
  if (currentUser) {
- const { data: myBet } = await supabase.from('championship_bets').select('*').eq('user_id', currentUser.id).maybeSingle();
+ const { data: myBet } = await sb.from('championship_bets').select('*').eq('user_id', currentUser.id).maybeSingle();
  if (myBet) {
  const statusColor = myBet.status ==='won' ?'#1e8a4c' : myBet.status ==='lost' ?'#c0392b' :'#8a7300';
  myBetEl.innerHTML = `<div class="card" style="text-align:center;border-color:#f0dd80;background:#fff8d6">
@@ -2196,20 +2196,20 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (wager >currentProfile.peels) { setError('champ-bet-error','Not enough Peels!'); return; }
 
  // One championship bet per user - check for existing
- const { data: existing } = await supabase.from('championship_bets').select('id').eq('user_id', currentUser.id).maybeSingle();
+ const { data: existing } = await sb.from('championship_bets').select('id').eq('user_id', currentUser.id).maybeSingle();
  if (existing) { setError('champ-bet-error','You already have a championship pick. Only one per person!'); return; }
 
  const wagerRounded = Math.round(wager);
  const potential = Math.round(wagerRounded * champBetTeam.odds);
  const newPeels = Math.round(currentProfile.peels - wagerRounded);
 
- const { error } = await supabase.from('championship_bets').insert({
+ const { error } = await sb.from('championship_bets').insert({
  user_id: currentUser.id, team_name: champBetTeam.teamName, odds: champBetTeam.odds,
  wager: wagerRounded, potential, status:'pending'
  });
  if (error) { setError('champ-bet-error', error.message); return; }
 
- await supabase.from('profiles').update({ peels: newPeels }).eq('id', currentUser.id);
+ await sb.from('profiles').update({ peels: newPeels }).eq('id', currentUser.id);
  currentProfile.peels = newPeels;
  await refreshHeader();
  closeModal('champ-bet-modal');
@@ -2260,7 +2260,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  try {
  // game_date on card_stat_logs is a date string (e.g. "2026-06-28") set by
  // Game Stats Sync, so a plain string range comparison works here.
- const { data: logs } = await supabase.from('card_stat_logs')
+ const { data: logs } = await sb.from('card_stat_logs')
  .select('card_id, base_peels, game_date, player_cards(player_name, team_name, position)')
  .gte('game_date', start)
  .lte('game_date', end);
@@ -2296,7 +2296,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (!title) { setError('recap-error','Enter a title.'); return; }
  if (!body) { setError('recap-error','Write the recap text.'); return; }
 
- const { data: post, error } = await supabase.from('news_posts').insert({
+ const { data: post, error } = await sb.from('news_posts').insert({
  title, body,
  week_start: start || null,
  week_end: end || null,
@@ -2306,7 +2306,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (error) { setError('recap-error', error.message); return; }
 
  // Notify every user
- const { data: allUsers } = await supabase.from('profiles').select('id').eq('is_admin', false).eq('is_bot', false);
+ const { data: allUsers } = await sb.from('profiles').select('id').eq('is_admin', false).eq('is_bot', false);
  if (allUsers?.length) {
  const notifRows = allUsers.map(u => ({
  user_id: u.id,
@@ -2318,7 +2318,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  // Insert in batches to avoid one giant request
  const batchSize = 200;
  for (let i = 0; i< notifRows.length; i += batchSize) {
- await supabase.from('notifications').insert(notifRows.slice(i, i+batchSize));
+ await sb.from('notifications').insert(notifRows.slice(i, i+batchSize));
  }
  }
 
@@ -2333,7 +2333,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  async function renderNewsPage() {
  const el = document.getElementById('news-list');
  el.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
- const { data: posts } = await supabase.from('news_posts').select('*').order('created_at', { ascending: false });
+ const { data: posts } = await sb.from('news_posts').select('*').order('created_at', { ascending: false });
  if (!posts?.length) { el.innerHTML ='<div class="no-games">No recaps yet. Check back after the weekend!</div>'; return; }
 
  el.innerHTML = posts.map(p => {
@@ -2359,10 +2359,10 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (!text) { setError('update-error','Write something first.'); return; }
 
  // Store the update permanently so anyone who signs up later still sees it
- const { data: updateRow, error: insertError } = await supabase.from('app_updates').insert({ title:'📢 App Update', body: text }).select().single();
+ const { data: updateRow, error: insertError } = await sb.from('app_updates').insert({ title:'📢 App Update', body: text }).select().single();
  if (insertError) { setError('update-error', insertError.message); return; }
 
- const { data: allUsers, error: usersError } = await supabase.from('profiles').select('id').eq('is_admin', false).eq('is_bot', false);
+ const { data: allUsers, error: usersError } = await sb.from('profiles').select('id').eq('is_admin', false).eq('is_bot', false);
  if (usersError) { setError('update-error', usersError.message); return; }
 
  if (allUsers?.length) {
@@ -2377,7 +2377,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  // Insert in batches to avoid one giant request
  const batchSize = 200;
  for (let i = 0; i< notifRows.length; i += batchSize) {
- await supabase.from('notifications').insert(notifRows.slice(i, i+batchSize));
+ await sb.from('notifications').insert(notifRows.slice(i, i+batchSize));
  }
  }
 
@@ -2397,7 +2397,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  // — it doesn't rely on a client-side check being perfectly correct.
  async function syncMissedUpdates(userId) {
  try {
- const { data: allUpdates } = await supabase.from('app_updates').select('id, title, body').order('created_at', { ascending: true });
+ const { data: allUpdates } = await sb.from('app_updates').select('id, title, body').order('created_at', { ascending: true });
  if (!allUpdates?.length) return;
 
  const rows = allUpdates.map(u => ({
@@ -2408,7 +2408,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  body: u.body,
  read: false
  }));
- await supabase.from('notifications').upsert(rows, { onConflict:'user_id,update_id', ignoreDuplicates: true });
+ await sb.from('notifications').upsert(rows, { onConflict:'user_id,update_id', ignoreDuplicates: true });
  checkUnreadNotifications();
  } catch(e) {
  console.error('syncMissedUpdates error:', e);
@@ -2428,7 +2428,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  if (statusListEl && teams.length) {
- const { data: statusRows } = await supabase.from('team_playoff_status').select('*');
+ const { data: statusRows } = await sb.from('team_playoff_status').select('*');
  const statusByName = {};
  for (const s of (statusRows || [])) statusByName[s.team_name.toLowerCase().trim()] = s.status;
  statusListEl.innerHTML = `<div style="font-size:12px;color:#8a8a96;margin-bottom:6px;font-weight:700">Playoff Status</div>` +
@@ -2447,7 +2447,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
 
  const statusEl = document.getElementById('admin-championship-status');
  if (statusEl) {
- const { data: champState } = await supabase.from('championship_state').select('*').eq('id', 1).maybeSingle();
+ const { data: champState } = await sb.from('championship_state').select('*').eq('id', 1).maybeSingle();
  if (champState?.status ==='closed') {
  statusEl.innerHTML = `<div style="font-size:13px;color:#1e8a4c;font-weight:700">✓ Championship resolved: ${escapeHtml(champState.winner)}</div>`;
  } else {
@@ -2461,7 +2461,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (!sel) return;
  const teamName = sel.dataset.team;
  const status = sel.value;
- const { error } = await supabase.from('team_playoff_status').upsert({ team_name: teamName, status, updated_at: new Date().toISOString() }, { onConflict:'team_name' });
+ const { error } = await sb.from('team_playoff_status').upsert({ team_name: teamName, status, updated_at: new Date().toISOString() }, { onConflict:'team_name' });
  if (error) { toast('Error updating status:' + error.message); return; }
  toast(`${teamName} marked as${status}`);
  });
@@ -2502,7 +2502,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  // ─── My Bets page ─────────────────────────────────────────
  async function renderMyBets() {
  if (!currentUser) return;
- const { data: myBets } = await supabase.from('bets').select('*, games(t1, t2)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+ const { data: myBets } = await sb.from('bets').select('*, games(t1, t2)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
  const bets = myBets || [];
  const won = bets.filter(b =>b.status ==='won').length;
  const pending = bets.filter(b =>b.status ==='pending').length;
@@ -2525,7 +2525,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  async function renderLeaderboard() {
  const el = document.getElementById('lb-list');
  el.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
- const { data } = await supabase.from('profiles').select('username, peels').eq('is_admin', false).order('peels', { ascending: false }).limit(25);
+ const { data } = await sb.from('profiles').select('username, peels').eq('is_admin', false).order('peels', { ascending: false }).limit(25);
  const players = data || [];
  if (!players.length) { el.innerHTML ='<div class="no-games">No players yet!</div>'; return; }
  el.innerHTML = players.map((u, i) =>`
@@ -2666,7 +2666,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (isNaN(wp1) || isNaN(wp2) || wp1< 1 || wp2< 1) { toast('Enter valid win percentages'); return; }
  // Convert local datetime to UTC for storage
  const toUTC = (local) =>local ? new Date(local).toISOString() : null;
- const { error } = await supabase.from('games').insert({ t1, t2, wp1, wp2, game_date: toUTC(date), lock_time: toUTC(lock), status:'open' });
+ const { error } = await sb.from('games').insert({ t1, t2, wp1, wp2, game_date: toUTC(date), lock_time: toUTC(lock), status:'open' });
  if (error) { toast('Error adding game:' + error.message); return; }
  ['a-t1','a-t2','a-wp1','a-wp2','a-date'].forEach(id =>document.getElementById(id).value ='');
  document.getElementById('preview-odds-1').textContent ='—';
@@ -2683,7 +2683,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  async function renderAdminGames() {
  const el = document.getElementById('admin-games-list');
  el.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
- const { data: games } = await supabase.from('games').select('*').order('created_at', { ascending: false });
+ const { data: games } = await sb.from('games').select('*').order('created_at', { ascending: false });
  window._adminGamesCache = games || [];
  if (!games || !games.length) { el.innerHTML ='<div class="no-games" style="padding:16px">No games added yet.</div>'; return; }
  el.innerHTML = games.map(g =>`
@@ -2721,7 +2721,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
 
  async function renderAdminPlayers() {
  const el = document.getElementById('admin-players-list');
- const { data } = await supabase.from('profiles').select('id, username, peels').eq('is_admin', false).order('peels', { ascending: false });
+ const { data } = await sb.from('profiles').select('id, username, peels').eq('is_admin', false).order('peels', { ascending: false });
  const players = data || [];
  if (!players.length) { el.innerHTML ='<div class="no-games" style="padding:12px">No players yet.</div>'; return; }
  el.innerHTML = players.map(u =>`
@@ -2782,7 +2782,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (!t1 || !t2) { setError('edit-game-error','Enter both team names.'); return; }
  if (isNaN(wp1) || isNaN(wp2)) { setError('edit-game-error','Enter valid win percentages.'); return; }
  const toUTC = (local) =>local ? new Date(local).toISOString() : null;
- const { error } = await supabase.from('games').update({
+ const { error } = await sb.from('games').update({
  t1, t2, wp1, wp2,
  game_date: toUTC(date),
  lock_time: toUTC(lock)
@@ -2807,7 +2807,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  toast('Resolving game...');
 
  // Close the game first
- const { error: gameError } = await supabase.from('games').update({ status:'closed', winner }).eq('id', gameId);
+ const { error: gameError } = await sb.from('games').update({ status:'closed', winner }).eq('id', gameId);
  if (gameError) { toast('Error closing game:' + gameError.message); return; }
 
  // Call edge function to settle bets with service role (bypasses RLS)
@@ -2847,9 +2847,9 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  async function confirmAdjust() {
  const amt = parseFloat(document.getElementById('adjust-input').value);
  if (isNaN(amt)) { setError('adjust-error','Enter a valid number.'); return; }
- const { data: profile } = await supabase.from('profiles').select('peels, username').eq('id', pendingAdjust.userId).single();
+ const { data: profile } = await sb.from('profiles').select('peels, username').eq('id', pendingAdjust.userId).single();
  const newPeels = Math.round(profile.peels + amt);
- await supabase.from('profiles').update({ peels: newPeels }).eq('id', pendingAdjust.userId);
+ await sb.from('profiles').update({ peels: newPeels }).eq('id', pendingAdjust.userId);
  closeModal('adjust-modal');
  renderAdminPlayers(); refreshHeader();
  toast(`${profile.username}: ${amt >= 0 ?'+' :''}${amt} Peels`);
@@ -2881,7 +2881,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function openMyCardBreakdown(cardId, playerName, ownedSince) {
- const { data: allLogs } = await supabase.from('card_stat_logs')
+ const { data: allLogs } = await sb.from('card_stat_logs')
  .select('base_peels, notes, game_date, game_id, breakdown, created_at')
  .eq('card_id', cardId)
  .order('game_date', { ascending: false });
@@ -2944,7 +2944,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  window._currentBoxScoreGame = game;
  window._currentBoxScoreGameId = gameId;
 
- const { data: payoutLogs } = await supabase.from('card_stat_logs')
+ const { data: payoutLogs } = await sb.from('card_stat_logs')
  .select('base_peels, notes, player_cards(player_name, position)')
  .eq('game_id', gameId)
  .order('base_peels', { ascending: false });
@@ -3067,7 +3067,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  `;
  }
 
- supabase.from('card_stat_logs')
+ sb.from('card_stat_logs')
  .select('base_peels, notes, breakdown, player_cards(player_name)')
  .eq('game_id', window._currentBoxScoreGameId)
  .then(({data}) => {
@@ -3093,7 +3093,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  // My cards
  const myEl = document.getElementById('my-cards-list');
  myEl.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
- const { data: myCards } = await supabase.from('user_cards').select('*, player_cards(*)').eq('user_id', currentUser.id).order('created_at', {ascending: false});
+ const { data: myCards } = await sb.from('user_cards').select('*, player_cards(*)').eq('user_id', currentUser.id).order('created_at', {ascending: false});
  if (!myCards?.length) {
  myEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#8a8a96">
  No cards yet!<br/><br/>
@@ -3105,7 +3105,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
 
  // Packs
  const packsEl = document.getElementById('packs-list');
- const { data: packs } = await supabase.from('card_packs').select('*').order('price');
+ const { data: packs } = await sb.from('card_packs').select('*').order('price');
  if (!packs?.length) {
  packsEl.innerHTML ='<div class="card" style="text-align:center;padding:24px;color:#8a8a96">No packs available yet.</div>';
  } else {
@@ -3187,7 +3187,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  const mythic = parseInt(document.getElementById('cp-mythic').value);
  if (!name) { setError('cp-error','Enter a pack name.'); return; }
  if (common + rare + legendary + mythic !== 100) { setError('cp-error','Percentages must add up to 100.'); return; }
- const { error } = await supabase.from('card_packs').insert({ name, price, common_pct: common, rare_pct: rare, legendary_pct: legendary, mythic_pct: mythic });
+ const { error } = await sb.from('card_packs').insert({ name, price, common_pct: common, rare_pct: rare, legendary_pct: legendary, mythic_pct: mythic });
  if (error) { setError('cp-error', error.message); return; }
  closeModal('create-pack-modal');
  toast('Pack created!');
@@ -3205,15 +3205,15 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  if (!player) { setError('cc-error','Enter player name.'); return; }
 
  // Find the "All Players" pack automatically
- const { data: allPlayersPack } = await supabase.from('card_packs').select('id').ilike('name','All Players').limit(1).maybeSingle();
+ const { data: allPlayersPack } = await sb.from('card_packs').select('id').ilike('name','All Players').limit(1).maybeSingle();
  if (!allPlayersPack) { setError('cc-error','Could not find the "All Players" pack. Make sure it exists.'); return; }
 
- const { data: card, error } = await supabase.from('player_cards').insert({ 
+ const { data: card, error } = await sb.from('player_cards').insert({ 
  player_name: player, team_name: team, position: position||null, pack_id: allPlayersPack.id
  }).select().single();
  if (error) { setError('cc-error', error.message); return; }
 
- await supabase.from('card_pack_members').insert({ card_id: card.id, pack_id: allPlayersPack.id });
+ await sb.from('card_pack_members').insert({ card_id: card.id, pack_id: allPlayersPack.id });
  closeModal('create-card-modal');
  toast(player +' added to All Players pack!');
  renderAdmin();
@@ -3269,7 +3269,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
 
  // Check which games are already synced (any card_stat_log with this game_id)
  const gameIds = games.map((g) => g.id);
- const { data: existingLogs } = await supabase.from('card_stat_logs').select('game_id').in('game_id', gameIds);
+ const { data: existingLogs } = await sb.from('card_stat_logs').select('game_id').in('game_id', gameIds);
  const syncedSet = new Set((existingLogs||[]).map((l) => l.game_id));
 
  listEl.innerHTML = games.map((g) => {
@@ -3331,7 +3331,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  }
 
  async function showPlayerStats() {
- const { data: cards } = await supabase.from('player_cards').select('id, player_name, team_name, position').order('player_name');
+ const { data: cards } = await sb.from('player_cards').select('id, player_name, team_name, position').order('player_name');
  const sel = document.getElementById('ps-player-select');
  sel.innerHTML = (cards||[]).map(c =>`<option value="${c.id}">${c.player_name}${c.position?' ('+c.position+')':''} — ${c.team_name||''}</option>`).join('');
  document.getElementById('player-stats-modal').style.display ='flex';
@@ -3346,17 +3346,17 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  if (!basePeels || basePeels< 0) { setError('ps-error','Enter valid peels amount.'); return; }
 
  // Get the card to find rarity
- const { data: card } = await supabase.from('player_cards').select('*').eq('id', cardId).single();
+ const { data: card } = await sb.from('player_cards').select('*').eq('id', cardId).single();
  if (!card) { setError('ps-error','Card not found.'); return; }
  const mult = RARITY_MULTIPLIER[card.rarity] || 1;
  const payout = Math.round(basePeels * mult);
 
  // Find all users who have this card
- const { data: holders } = await supabase.from('user_cards').select('*').eq('card_id', cardId);
+ const { data: holders } = await sb.from('user_cards').select('*').eq('card_id', cardId);
  if (!holders?.length) { setError('ps-error','No one owns this card yet.'); return; }
 
  // Log the stat entry
- const { data: logEntry } = await supabase.from('card_stat_logs').insert({ 
+ const { data: logEntry } = await sb.from('card_stat_logs').insert({ 
  card_id: cardId, base_peels: basePeels, notes, created_at: new Date().toISOString() 
  }).select().single();
 
@@ -3365,11 +3365,11 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  const holderMult = RARITY_MULTIPLIER[holder.locked_rarity || card.rarity] || 1;
  const holderPayout = Math.round(basePeels * holderMult);
  // Update user_cards total + log for notification
- await supabase.from('user_cards').update({ 
+ await sb.from('user_cards').update({ 
  total_peels_earned: (holder.total_peels_earned || 0) + holderPayout 
  }).eq('id', holder.id);
  // Log per-user notification
- await supabase.from('card_earnings_log').insert({
+ await sb.from('card_earnings_log').insert({
  user_id: holder.user_id,
  user_card_id: holder.id,
  card_id: cardId,
@@ -3377,7 +3377,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  notes,
  seen: false
  });
- await supabase.from('notifications').insert({
+ await sb.from('notifications').insert({
  user_id: holder.user_id,
  type:'card_earning',
  title: `${card.player_name} earned you ${holderPayout} Peels`,
@@ -3385,8 +3385,8 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  read: false
  });
  // Pay peels to profile
- const { data: profile } = await supabase.from('profiles').select('peels').eq('id', holder.user_id).single();
- if (profile) await supabase.from('profiles').update({ peels: Math.round(profile.peels + holderPayout) }).eq('id', holder.user_id);
+ const { data: profile } = await sb.from('profiles').select('peels').eq('id', holder.user_id).single();
+ if (profile) await sb.from('profiles').update({ peels: Math.round(profile.peels + holderPayout) }).eq('id', holder.user_id);
  }
 
  closeModal('player-stats-modal');
@@ -3398,7 +3398,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  // Packs
  const packsEl = document.getElementById('admin-packs-list');
  if (packsEl) {
- const { data: packs } = await supabase.from('card_packs').select('*');
+ const { data: packs } = await sb.from('card_packs').select('*');
  packsEl.innerHTML = (packs||[]).length ? packs.map(p =>`
 <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;display:flex;justify-content:space-between">
 <span>${p.name}</span>
@@ -3408,7 +3408,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  // Cards
  const cardsEl = document.getElementById('admin-cards-list');
  if (cardsEl) {
- const { data: cards } = await supabase.from('player_cards').select('*, card_packs(name)').order('player_name');
+ const { data: cards } = await sb.from('player_cards').select('*, card_packs(name)').order('player_name');
  cardsEl.innerHTML = (cards||[]).length ? cards.map(c =>`
 <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;display:flex;justify-content:space-between">
 <span>${c.player_name}<span style="color:${RARITY_COLOR[c.rarity]}">(${c.rarity})</span></span>
@@ -3424,9 +3424,9 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  if (!el) return;
  el.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
 
- const { data: logs } = await supabase.from('card_stat_logs').select('card_id, base_peels, notes, game_date');
- const { data: cards } = await supabase.from('player_cards').select('id, player_name, team_name, position');
- const { data: userCards } = await supabase.from('user_cards').select('card_id');
+ const { data: logs } = await sb.from('card_stat_logs').select('card_id, base_peels, notes, game_date');
+ const { data: cards } = await sb.from('player_cards').select('id, player_name, team_name, position');
+ const { data: userCards } = await sb.from('user_cards').select('card_id');
 
  if (!cards?.length) { el.innerHTML ='<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No cards yet</div>'; return; }
 
@@ -3462,7 +3462,7 @@ ${r.owners===0?'<span style="color:#c0392b;font-size:11px;margin-left:6px">unown
  }
 
  async function openAdminCardBreakdown(cardId, playerName) {
- const { data: logs } = await supabase.from('card_stat_logs')
+ const { data: logs } = await sb.from('card_stat_logs')
  .select('base_peels, notes, game_date, game_id, breakdown')
  .eq('card_id', cardId)
  .order('game_date', { ascending: false });
@@ -3504,13 +3504,13 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  if (!nextRarity) { toast('Already max rarity!'); return; }
  if (!confirm(`Upgrade ${playerName} from ${currentRarity} to ${nextRarity} for ${cost} Peels?`)) return;
 
- const { data: profile } = await supabase.from('profiles').select('peels').eq('id', currentUser.id).single();
+ const { data: profile } = await sb.from('profiles').select('peels').eq('id', currentUser.id).single();
  if (!profile || profile.peels< cost) { toast('Not enough Peels!'); return; }
 
  // Deduct peels
- await supabase.from('profiles').update({ peels: Math.round(profile.peels - cost) }).eq('id', currentUser.id);
+ await sb.from('profiles').update({ peels: Math.round(profile.peels - cost) }).eq('id', currentUser.id);
  // Update card rarity
- await supabase.from('user_cards').update({ locked_rarity: nextRarity }).eq('id', userCardId);
+ await sb.from('user_cards').update({ locked_rarity: nextRarity }).eq('id', userCardId);
 
  await refreshHeader();
  toast(`${playerName} upgraded to ${nextRarity}!`);
@@ -3520,11 +3520,11 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  // ─── Sell card ───────────────────────────────────────────────
  async function sellCard(userCardId, playerName, sellPrice) {
  if (!confirm(`Sell ${playerName} for ${sellPrice} Peels? This cannot be undone.`)) return;
- const { error } = await supabase.from('user_cards').delete().eq('id', userCardId);
+ const { error } = await sb.from('user_cards').delete().eq('id', userCardId);
  if (error) { toast('Error selling card:' + error.message); return; }
- const { data: profile } = await supabase.from('profiles').select('peels').eq('id', currentUser.id).single();
+ const { data: profile } = await sb.from('profiles').select('peels').eq('id', currentUser.id).single();
  if (profile) {
- await supabase.from('profiles').update({ peels: Math.round(profile.peels + sellPrice) }).eq('id', currentUser.id);
+ await sb.from('profiles').update({ peels: Math.round(profile.peels + sellPrice) }).eq('id', currentUser.id);
  await refreshHeader();
  }
  toast(`Sold ${playerName} for ${sellPrice} Peels!`);
@@ -3537,7 +3537,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
 
  async function showStarterCardPicker(userId) {
  starterUserId = userId;
- const { data: players } = await supabase.from('player_cards').select('id, player_name, team_name, position').order('player_name');
+ const { data: players } = await sb.from('player_cards').select('id, player_name, team_name, position').order('player_name');
  // Deduplicate by player name (show each player once)
  const seen = new Set();
  allPlayersList = (players||[]).filter(p =>{
@@ -3573,18 +3573,18 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
 
  try {
  // Get any card for this player (common preferred)
- const { data: cards } = await supabase.from('player_cards').select('id, rarity, player_name').eq('player_name', playerName).order('rarity');
+ const { data: cards } = await sb.from('player_cards').select('id, rarity, player_name').eq('player_name', playerName).order('rarity');
  if (!cards?.length) { setError('starter-error','Player not found.'); return; }
 
  // Refuse if the user already owns ANY card for this player, under any of
  // that player's card_ids - prevents accidental double-claims (e.g. a
  // double-click) or reusing the starter picker to grab a second copy.
  const cardIds = cards.map(c => c.id);
- const { data: existingOwned } = await supabase.from('user_cards').select('id').eq('user_id', uid).in('card_id', cardIds).limit(1);
+ const { data: existingOwned } = await sb.from('user_cards').select('id').eq('user_id', uid).in('card_id', cardIds).limit(1);
  if (existingOwned?.length) { setError('starter-error', `You already have a ${playerName} card.`); return; }
 
  const card = cards[0];
- const { error } = await supabase.from('user_cards').insert({
+ const { error } = await sb.from('user_cards').insert({
  user_id: uid, card_id: card.id, total_peels_earned: 0, locked_rarity:'common'
  });
  if (error) { setError('starter-error', error.message); return; }
@@ -3624,7 +3624,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
 
  // Attach the listener FIRST so a PASSWORD_RECOVERY event fired during
  // the calls below (getSession / exchangeCodeForSession) isn't missed.
- supabase.auth.onAuthStateChange(async (event, session) =>{
+ sb.auth.onAuthStateChange(async (event, session) =>{
  if (event ==='PASSWORD_RECOVERY' && session?.user) {
  currentUser = session.user;
  const profile = await loadProfile(currentUser.id);
@@ -3654,11 +3654,11 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  // PKCE-style link: exchange the code for a session ourselves.
  const code = new URLSearchParams(window.location.search).get('code');
  if (code) {
- const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+ const { error } = await sb.auth.exchangeCodeForSession(window.location.href);
  if (error) console.error('exchangeCodeForSession error:', error);
  }
 
- const { data: { session } } = await supabase.auth.getSession();
+ const { data: { session } } = await sb.auth.getSession();
  if (session?.user) {
  currentUser = session.user;
  const profile = await loadProfile(currentUser.id);
