@@ -1943,10 +1943,19 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  ${(!topHitter||!topHitter.H) && (!topRBI||!topRBI.RBI) && (!topK||!topK.K)?'<div style="color:#b0b0bc;font-size:13px">No stats yet.</div>':''}
  </div>
  ${highlights?`<div class="card" style="margin-bottom:10px">
- <div style="font-size:11px;color:#8a8a96;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:700">🏠 Highlights (parsed from game notes)</div>
- ${highlights.HR?`<div class="stat-row"><span class="stat-label">Home Runs</span><span class="stat-val">${highlights.HR.map(escapeHtml).join(', ')}</span></div>`:''}
- ${highlights['3B']?`<div class="stat-row"><span class="stat-label">Triples</span><span class="stat-val">${highlights['3B'].map(escapeHtml).join(', ')}</span></div>`:''}
- ${highlights['2B']?`<div class="stat-row"><span class="stat-label">Doubles</span><span class="stat-val">${highlights['2B'].map(escapeHtml).join(', ')}</span></div>`:''}
+ <div style="font-size:11px;color:#8a8a96;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:700">🏠 Extra-Base Hits — Latest First</div>
+ <div style="max-height:340px;overflow-y:auto">
+ ${highlights.map(p => {
+ const badge = p.type==='HR' ? { label:'HR', bg:'#FFD700', fg:'#1a1a2e' } : p.type==='3B' ? { label:'3B', bg:'#a78bfa', fg:'#fff' } : { label:'2B', bg:'#60a5fa', fg:'#fff' };
+ return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f4">
+ <span style="background:${badge.bg};color:${badge.fg};font-weight:800;font-size:11px;padding:3px 8px;border-radius:6px;flex-shrink:0">${badge.label}</span>
+ <div style="flex:1;min-width:0">
+ <div style="font-weight:700;font-size:13px">${escapeHtml(p.batter)} <span style="color:#a0a0ae;font-weight:400">(${escapeHtml(p.team)})</span></div>
+ <div style="font-size:12px;color:#8a8a96">Inning ${p.inning} · off ${escapeHtml(p.pitcher)}</div>
+ </div>
+ </div>`;
+ }).join('')}
+ </div>
  </div>`:''}
  ${game.notes?`<div class="card" style="font-size:13px;color:#6b6b78;white-space:pre-wrap"><div style="font-size:11px;color:#8a8a96;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:700">Game Notes</div>${escapeHtml(game.notes)}</div>`:''}
  `;
@@ -3003,20 +3012,33 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  return await res.json();
  }
 
- // Best-effort parsing of common box-score note conventions, e.g.
- // "HR: Smith (1), Jones (2); 2B: Lee (5)". This is a guess at the format
- // based on how these notes typically read elsewhere — if this API's notes
- // don't follow that convention, this simply finds nothing and the raw
- // notes text still gets shown as-is further down, so nothing is lost.
+ // Parses notes formatted like:
+ // "SAV HR: Kyle Jackson (7, 7th inning off Shill), Olson (3, 8th inning off Temple)"
+ // into individual plays with inning + pitcher, confirmed against a real
+ // game's notes text. Lines that say "N/A" (a team with none of that hit
+ // type) are simply skipped. Returns plays sorted with the latest inning
+ // first, or null if nothing matched (raw notes still show as a fallback
+ // further down either way, so nothing is ever lost).
  function parseHighlightsFromNotes(notes) {
  if (!notes) return null;
- const patterns = { HR: /HR:\s*([^;.\n]+)/i,'3B': /3B:\s*([^;.\n]+)/i,'2B': /2B:\s*([^;.\n]+)/i };
- const result = {};
- for (const [key, re] of Object.entries(patterns)) {
- const m = notes.match(re);
- if (m) result[key] = m[1].split(',').map(s =>s.trim()).filter(Boolean);
+ const lineRe = /^([A-Za-z]+)\s+(HR|3B|2B):\s*(.*)$/;
+ const entryRe = /([A-Za-z.'\- ]+?)\s*\((\d+),\s*(\d+)(?:st|nd|rd|th)\s*inning off\s*([^)]+)\)/g;
+ const plays = [];
+
+ notes.split('\n').forEach(line => {
+ const lm = line.trim().match(lineRe);
+ if (!lm) return;
+ const [, team, type, rest] = lm;
+ if (!rest || rest.trim().toUpperCase() ==='N/A') return;
+ let em;
+ while ((em = entryRe.exec(rest)) !== null) {
+ plays.push({ team, type, batter: em[1].trim(), inning: parseInt(em[3]), pitcher: em[4].trim() });
  }
- return Object.keys(result).length ? result : null;
+ });
+
+ if (!plays.length) return null;
+ plays.sort((a,b) =>b.inning - a.inning); // most recent inning first
+ return plays;
  }
 
  async function showBoxScore(gameId, targetEl) {
