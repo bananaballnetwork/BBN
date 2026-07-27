@@ -385,6 +385,13 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 <button class="pick-btn" id="recap-mode-average" onclick="setRecapMode('average')">Average / Game</button>
 </div>
 </div>
+<div class="input-group"><label>Role</label>
+<div class="pick-buttons" style="grid-template-columns:1fr 1fr 1fr">
+<button class="pick-btn selected" id="recap-role-all" onclick="setRecapRole('all')">All</button>
+<button class="pick-btn" id="recap-role-batters" onclick="setRecapRole('batters')">Batters</button>
+<button class="pick-btn" id="recap-role-pitchers" onclick="setRecapRole('pitchers')">Pitchers</button>
+</div>
+</div>
 <button class="admin-btn" style="background:#60a5fa" onclick="loadTopPerformersForRecap()">Find Top Performers</button>
 <div id="recap-top-performers-preview" style="margin-top:12px"></div>
 <div class="input-group" style="margin-top:14px"><label>Title</label><input id="recap-title" placeholder="e.g. Weekend Recap: July 4th Slugfest"/></div>
@@ -2292,6 +2299,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  let recapTopPerformersCache = null; // final ranked list actually used for publishing
  let recapRawTotals = null; // unsorted per-card {points, games} so toggling mode doesn't need a re-fetch
  let recapMode ='total';
+ let recapRole ='all';
 
  function setRecapMode(mode) {
  recapMode = mode;
@@ -2300,12 +2308,22 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (recapRawTotals) renderRecapPreview(); // re-rank/re-render from cache, no need to hit the DB again
  }
 
+ function setRecapRole(role) {
+ recapRole = role;
+ document.getElementById('recap-role-all').classList.toggle('selected', role ==='all');
+ document.getElementById('recap-role-batters').classList.toggle('selected', role ==='batters');
+ document.getElementById('recap-role-pitchers').classList.toggle('selected', role ==='pitchers');
+ if (recapRawTotals) renderRecapPreview(); // re-filter from cache, no need to hit the DB again
+ }
+
  function renderRecapPreview() {
  const previewEl = document.getElementById('recap-top-performers-preview');
  const start = document.getElementById('recap-week-start').value;
  const end = document.getElementById('recap-week-end').value;
- const list = Object.values(recapRawTotals || {});
- if (!list.length) { previewEl.innerHTML ='<div class="no-games">No synced games found in this date range.</div>'; recapTopPerformersCache = []; return; }
+ let list = Object.values(recapRawTotals || {});
+ if (recapRole ==='pitchers') list = list.filter(r =>r.position ==='Pitcher');
+ else if (recapRole ==='batters') list = list.filter(r =>r.position !=='Pitcher');
+ if (!list.length) { previewEl.innerHTML ='<div class="no-games">No matching cards found for this date range/role.</div>'; recapTopPerformersCache = []; return; }
 
  const withValue = list.map(r => ({ ...r, value: recapMode ==='average' ? (r.points / r.games) : r.points }));
  const ranked = withValue.sort((a,b) => b.value - a.value).slice(0, 10);
@@ -2315,8 +2333,9 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }));
 
  const unitLabel = recapMode ==='average' ?'avg/gm' :'pts';
+ const roleLabel = recapRole ==='pitchers' ?'Pitchers' : recapRole ==='batters' ?'Batters' :'All Players';
  previewEl.innerHTML = `<div class="card" style="background:#fff8d6;border-color:#f0dd80">
- <div style="font-size:12px;color:#8a7300;font-weight:700;margin-bottom:8px">TOP PERFORMERS (${start} to ${end}) · ${recapMode ==='average' ?'Average / Game' :'Total Points'}</div>
+ <div style="font-size:12px;color:#8a7300;font-weight:700;margin-bottom:8px">TOP PERFORMERS (${start} to ${end}) · ${recapMode ==='average' ?'Average / Game' :'Total Points'} ·${roleLabel}</div>
  ${ranked.map((r,i) => `<div class="stat-row"><span class="stat-label">#${i+1} ${escapeHtml(r.player_name)} <span style="color:#a0a0ae">${r.team_name?'· '+escapeHtml(r.team_name):''} (${r.games} gm${r.games===1?'':'s'})</span></span><span class="stat-val" style="color:#1e8a4c;font-weight:700">${r.value.toFixed(1)} ${unitLabel}</span></div>`).join('')}
  </div>`;
  }
