@@ -194,8 +194,8 @@
 <button onclick="showPage('news',null);closeTopMenu()">News</button>
 <button onclick="showPage('help',null);closeTopMenu()">Help</button>
 <button onclick="showPage('notifications',null);closeTopMenu()" style="position:relative">Notifications<span id="notif-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
-<button onclick="showPage('trivia',null);closeTopMenu()" style="position:relative">🎯 Daily Trivia<span id="trivia-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
-<button onclick="showPage('referrals',null);closeTopMenu()">🎁 Referrals</button>
+<button onclick="showPage('trivia',null);closeTopMenu()" style="position:relative">Daily Trivia<span id="trivia-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
+<button onclick="showPage('referrals',null);closeTopMenu()">Referrals</button>
 <button onclick="showPage('mybets',null);closeTopMenu()">My Bets</button>
 <button onclick="showPage('leaderboard',null);closeTopMenu()">Leaderboard</button>
 <button onclick="showPage('feedback',null);closeTopMenu()">Feedback</button>
@@ -211,8 +211,8 @@
 <div id="page-games" class="page active"></div>
 <div id="page-mybets" class="page"><h2>My Bets</h2><div id="my-bets-stats" class="grid2" style="margin-bottom:14px"></div><div class="card" id="my-bets-list"></div></div>
 <div id="page-notifications" class="page"><h2>Notifications</h2><div class="card" id="notifications-list"></div></div>
-<div id="page-trivia" class="page"><h2>🎯 Daily Trivia</h2><div id="trivia-content"></div></div>
-<div id="page-referrals" class="page"><h2>🎁 Referrals</h2><div id="referrals-content"></div></div>
+<div id="page-trivia" class="page"><h2>Daily Trivia</h2><div id="trivia-content"></div></div>
+<div id="page-referrals" class="page"><h2>Referrals</h2><div id="referrals-content"></div></div>
 <div id="page-news" class="page"><h2>📰 News</h2><div id="news-list"></div></div>
 <div id="page-help" class="page"><h2>❓ Help</h2><div id="help-list"></div></div>
 <div id="page-leaderboard" class="page"><h2>Leaderboard</h2><div class="card" id="lb-list"><div class="loading"><span class="spinner"></span>Loading...</div></div></div>
@@ -310,6 +310,12 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 <details>
 <summary style="cursor:pointer;color:#9a8200;font-weight:700;font-size:15px;list-style:none">▸ Manage Players</summary>
 <div id="admin-players-list" style="margin-top:10px"></div>
+</details>
+</div>
+<div class="card" style="margin-top:12px">
+<details>
+<summary style="cursor:pointer;color:#9a8200;font-weight:700;font-size:15px;list-style:none">▸ Team Fandom</summary>
+<div id="admin-fandom-list" style="margin-top:10px"></div>
 </details>
 </div>
 <div class="card" style="margin-top:12px">
@@ -420,7 +426,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 </div>
 <div class="card" style="margin-top:12px">
 <details>
-<summary style="cursor:pointer;color:#9a8200;font-weight:700;font-size:15px;list-style:none">▸ 🎯 Daily Trivia</summary>
+<summary style="cursor:pointer;color:#9a8200;font-weight:700;font-size:15px;list-style:none">▸ Daily Trivia</summary>
 <div style="margin-top:10px">
 <p style="font-size:12px;color:#8a8a96;margin-bottom:10px">Add questions to the bank. One unused question is picked automatically each day, shown to everyone, and marked used so it won't repeat until you add more.</p>
 <div class="input-group"><label>Question</label>
@@ -947,7 +953,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 
  await sb.from('profiles').update({ peels: Math.round((referrer.peels||0) + REFERRAL_BONUS_REFERRER) }).eq('id', referrer.id);
  await sb.from('notifications').insert({
- user_id: referrer.id, type:'referral', title:'🎁 Referral Bonus!',
+ user_id: referrer.id, type:'referral', title:'Referral Bonus!',
  body: `+${REFERRAL_BONUS_REFERRER} Peels — someone signed up with your code!`, read: false
  });
 
@@ -1369,7 +1375,7 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  }
 
  function notifIcon(type) {
- return { bet_won:'🎉', bet_lost:'📉', card_earning:'▣', championship:'🏆', live_bonus:'🔴', news:'📰', update:'📢', trivia:'🎯', referral:'🎁' }[type] ||'🔔';
+ return { bet_won:'🎉', bet_lost:'📉', card_earning:'▣', championship:'🏆', live_bonus:'🔴', news:'📰', update:'📢', trivia:'', referral:'' }[type] ??'🔔';
  }
 
  async function renderNotificationsPage() {
@@ -1387,7 +1393,7 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  el.innerHTML = notifs.map(n => `
 <div class="bet-item" style="${n.read?'':'background:#fff8d6;margin:0 -16px;padding:10px 16px'}">
 <div>
-<div style="font-weight:600;font-size:14px">${notifIcon(n.type)} ${escapeHtml(n.title)}</div>
+<div style="font-weight:600;font-size:14px">${notifIcon(n.type)?notifIcon(n.type)+' ':''}${escapeHtml(n.title)}</div>
 ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(n.body)}</div>`:''}
 <div style="font-size:11px;color:#b0b0bc;margin-top:3px">${new Date(n.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
 </div>
@@ -1509,10 +1515,9 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  : bailedEarly ?"Didn't finish — that counts as wrong" :'Not quite — no Peels today';
  el.innerHTML = `
 <div class="card" style="text-align:center">
-<div style="font-size:34px">${attempt.correct ?'🎉' :'😬'}</div>
 <h3 style="margin:8px 0 4px">${headline}</h3>
 <div style="font-size:13px;color:#8a8a96">Come back tomorrow for a new question.</div>
-<div class="trivia-streak-pill">🔥 ${currentProfile?.trivia_streak || 0}-day streak</div>
+<div class="trivia-streak-pill">${currentProfile?.trivia_streak || 0}-day streak</div>
 </div>`;
  checkTriviaDot();
  return;
@@ -1527,7 +1532,7 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  const nextReward = triviaReward((currentProfile?.trivia_last_correct_date === triviaYesterday() ? (currentProfile?.trivia_streak || 0) : 0) + 1);
  el.innerHTML = `
 <div class="card" style="text-align:center">
-<div style="font-size:13px;color:#8a8a96;margin-bottom:8px">Answer in ${TRIVIA_TIME_LIMIT} seconds for ${nextReward} Peels. Current streak: 🔥${currentProfile?.trivia_streak || 0}</div>
+<div style="font-size:13px;color:#8a8a96;margin-bottom:8px">Answer in ${TRIVIA_TIME_LIMIT} seconds for ${nextReward} Peels. Current streak: ${currentProfile?.trivia_streak || 0}</div>
 <div style="font-size:11px;color:#b0b0bc;margin-bottom:8px">Once you hit Start, leaving or reloading counts as a wrong answer — no do-overs!</div>
 <button class="admin-btn" id="trivia-start-btn" onclick="startTrivia()">Start</button>
 </div>`;
@@ -1646,8 +1651,8 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
 
  if (correct) {
  await sb.from('notifications').insert({
- user_id: currentUser.id, type:'trivia', title:'🎯 Trivia Correct!',
- body: `+${reward} Peels · 🔥${newStreak}-day streak`, read: false
+ user_id: currentUser.id, type:'trivia', title:'Trivia Correct!',
+ body: `+${reward} Peels ·${newStreak}-day streak`, read: false
  });
  }
 
@@ -1851,6 +1856,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function openGameDetail(gameId) {
+ clearInterval(window._gameplayCountdownInterval);
  const { data: game } = await sb.from('games').select('*').eq('id', gameId).single();
  if (!game) { toast('Game not found'); return; }
  currentGameDetail = game;
@@ -1898,6 +1904,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  function switchGameTab(tab) {
+ clearInterval(window._gameplayCountdownInterval);
  document.querySelectorAll('.game-tab-btn').forEach(b =>b.classList.remove('active'));
  document.getElementById('gtab-' + tab).classList.add('active');
  if (tab ==='predictions') renderPredictionsTab();
@@ -1965,7 +1972,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  (ag.home_team.name === g.t2 || ag.away_team.name === g.t2)
  );
  if (!match) return { error:'No data found for this matchup on that date yet.' };
- if (match.status ==='scheduled') return { error:"Game hasn't started yet — check back once it's underway!" };
+ if (match.status ==='scheduled') return { error:"Game hasn't started yet — check back once it's underway!", notStarted: true };
  return { match };
  }
 
@@ -1974,7 +1981,8 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const contentEl = document.getElementById('game-tab-content');
  contentEl.innerHTML ='<div class="loading"><span class="spinner"></span>Loading gameplay...</div>';
  try {
- const { match, error } = await findApiMatch(g);
+ const { match, error, notStarted } = await findApiMatch(g);
+ if (notStarted) { renderGameCountdown(g, contentEl); return; }
  if (error) { contentEl.innerHTML = `<div class="no-games">${escapeHtml(error)}</div>`; return; }
 
  const game = await fetchBoxScoreGame(match.id);
@@ -1984,6 +1992,35 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  } catch(e) {
  contentEl.innerHTML = `<div class="no-games">Error: ${e.message}</div>`;
  }
+ }
+
+ // Live countdown to first pitch, shown in the Gameplay tab for games that
+ // haven't started. Updates once a minute rather than every second, since
+ // "days/hours/minutes" doesn't need second-level precision and this way
+ // it won't burn battery re-rendering constantly while the tab sits open.
+ function renderGameCountdown(g, contentEl) {
+ clearInterval(window._gameplayCountdownInterval);
+ const targetMs = new Date(g.game_date).getTime();
+
+ function tick() {
+ const diff = targetMs - Date.now();
+ if (diff<= 0) {
+ clearInterval(window._gameplayCountdownInterval);
+ contentEl.innerHTML ='<div class="no-games">Game should be starting any moment — check back shortly!</div>';
+ return;
+ }
+ const days = Math.floor(diff / 86400000);
+ const hours = Math.floor((diff % 86400000) / 3600000);
+ const minutes = Math.floor((diff % 3600000) / 60000);
+ contentEl.innerHTML = `
+<div class="card" style="text-align:center;padding:28px 16px">
+<div style="font-size:13px;color:#8a8a96;margin-bottom:10px">Game hasn't started yet</div>
+<div style="font-family:'Bangers',cursive;font-size:32px;color:#9a8200">${days>0?days+'d ':''}${hours}h ${minutes}m</div>
+<div style="font-size:12px;color:#8a8a96;margin-top:8px">until first pitch</div>
+</div>`;
+ }
+ tick();
+ window._gameplayCountdownInterval = setInterval(tick, 60000);
  }
 
  function renderGameplayContent(game, contentEl) {
@@ -2842,8 +2879,42 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function renderAdmin() {
- await Promise.all([renderAdminGames(), renderAdminPlayers(), renderAdminBots(), populateChampionshipSelect(), renderTriviaBankList()]);
+ await Promise.all([renderAdminGames(), renderAdminPlayers(), renderAdminBots(), populateChampionshipSelect(), renderTriviaBankList(), renderTeamFandom()]);
  renderAdminCardsSection();
+ }
+
+ async function renderTeamFandom() {
+ const el = document.getElementById('admin-fandom-list');
+ if (!el) return;
+ const { data: profiles } = await sb.from('profiles').select('favorite_team').eq('is_admin', false).eq('is_bot', false);
+ if (!profiles?.length) { el.innerHTML ='<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No players yet</div>'; return; }
+
+ const counts = {};
+ let noneCount = 0;
+ profiles.forEach(p => {
+ if (!p.favorite_team) { noneCount++; return; }
+ counts[p.favorite_team] = (counts[p.favorite_team] || 0) + 1;
+ });
+
+ const total = profiles.length;
+ const rows = Object.entries(counts).sort((a,b) =>b[1]-a[1]);
+ el.innerHTML = `
+<div style="font-size:12px;color:#8a8a96;margin-bottom:10px">${total} player${total===1?'':'s'} total</div>
+ ${rows.map(([team, count]) => {
+ const pct = ((count/total)*100).toFixed(1);
+ const colors = teamColorsFor(team);
+ return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+<span>${escapeHtml(team)}</span>
+<span style="color:#9a8200">${pct}% (${count})</span>
+</div>
+<div style="background:rgba(255,255,255,0.08);border-radius:6px;height:6px;overflow:hidden">
+<div style="width:${pct}%;height:100%;background:${colors?.primary||'#9a8200'}"></div>
+</div>
+</div>`;
+ }).join('')}
+ ${noneCount>0?`<div style="padding:8px 0;font-size:12px;color:#8a8a96">${noneCount} player${noneCount===1?'':'s'} (${((noneCount/total)*100).toFixed(1)}%) haven't picked a favorite team yet</div>`:''}
+ `;
  }
 
  async function renderAdminGames() {
