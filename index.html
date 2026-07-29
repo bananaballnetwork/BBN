@@ -1707,33 +1707,6 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  // ─── Games page ───────────────────────────────────────────
  // ─── Unified Games Page ─────────────────────────────────────
  let currentGameDetail = null;
- let leagueRecordsCache = null;
-
- async function fetchLeagueRecords() {
- if (leagueRecordsCache) return leagueRecordsCache;
- try {
- const url = `https://banana-stats-pages-seven.vercel.app/api/stats/games?dateFrom=2026-01-01&dateTo=2026-12-31`;
- const res = await fetch(`${SUPABASE_URL}/functions/v1/banana-proxy?url=` + encodeURIComponent(url), { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } });
- const games = await res.json();
- leagueRecordsCache = (games||[]).filter(g => g.status ==='final' && g.home_team?.points!=null && g.away_team?.points!=null);
- } catch(e) {
- leagueRecordsCache = [];
- }
- return leagueRecordsCache;
- }
-
- function teamRecord(finals, teamName) {
- let wins = 0, losses = 0;
- for (const g of finals) {
- const home = g.home_team.name, away = g.away_team.name;
- if (home !== teamName && away !== teamName) continue;
- const isHome = home === teamName;
- const myPts = isHome ? g.home_team.points : g.away_team.points;
- const oppPts = isHome ? g.away_team.points : g.home_team.points;
- if (myPts >oppPts) wins++; else losses++;
- }
- return { wins, losses };
- }
 
  async function fetchGameStatusMap(dateStr) {
  // Returns a map keyed by "team1|team2" (order-independent) -> the matching
@@ -1808,12 +1781,12 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  });
  }
 
- const finals = await fetchLeagueRecords();
+ const teamStats = await fetchTeamStats();
  const statusMap = dateToShow ? await fetchGameStatusMap(dateToShow) : {};
 
  listEl.innerHTML = filtered.map(g => {
- const r1 = teamRecord(finals, g.t1);
- const r2 = teamRecord(finals, g.t2);
+ const r1 = findTeamStats(teamStats, g.t1)?.record || { wins: 0, losses: 0 };
+ const r2 = findTeamStats(teamStats, g.t2)?.record || { wins: 0, losses: 0 };
  const isClosed = g.status ==='closed'; // admin has resolved bets for this game
  const apiMatch = statusMap[matchupKey(g.t1, g.t2)];
  const isLive = apiMatch && apiMatch.status !=='scheduled' && apiMatch.status !=='final';
