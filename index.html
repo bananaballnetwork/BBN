@@ -851,6 +851,13 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  div.textContent = str;
  return div.innerHTML;
  }
+ // Same normalization the sync-banana-stats Edge Function uses to match
+ // stats-API player names to card names — strips periods/commas and
+ // collapses whitespace so small formatting differences (trailing space,
+ // "Jr." punctuation, etc.) don't cause an exact-match lookup to miss.
+ function normalizePlayerName(str) {
+ return (str||'').toLowerCase().replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
+ }
  function escapeAttr(str) {
  if (str === null || str === undefined) return'';
  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -3315,7 +3322,7 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  .select('base_peels, notes, breakdown, player_cards(player_name)')
  .eq('game_id', window._currentBoxScoreGameId)
  .then(({data}) => {
- const match = (data||[]).find(d => d.player_cards?.player_name === playerName);
+ const match = (data||[]).find(d =>normalizePlayerName(d.player_cards?.player_name) === normalizePlayerName(playerName));
  const breakdownHtml = match?.breakdown ? Object.entries(match.breakdown).filter(([k,v]) => v.count !== 0).map(([k,v]) =>
  `<div class="stat-row" style="padding-left:8px"><span class="stat-label" style="color:#6b6b78">${k} × ${v.count}</span><span class="stat-val" style="color:${v.points>=0?'#1e8a4c':'#c0392b'}">${v.points>=0?'+':''}${v.points.toFixed(2)}</span></div>`
  ).join('') : '';
