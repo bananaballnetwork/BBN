@@ -1487,10 +1487,14 @@ ${n.body?`<div style="font-size:12px;color:#8a8a96;margin-top:2px">${escapeHtml(
  // If the app is just left open/backgrounded overnight, nothing re-checks
  // the date on its own. This catches that: whenever the tab becomes
  // visible again, if the calendar day has changed since Trivia last
- // rendered, refresh it (and the unread dot) automatically.
+ // rendered, refresh it (and the unread dot) automatically. Also doubles
+ // as a general "last opened" touch — someone who keeps the same tab open
+ // for days without a fresh page load would otherwise never re-trigger
+ // boot()'s recordLastOpened call, even while actively using the app.
  let triviaLastRenderedDate = null;
  document.addEventListener('visibilitychange', () => {
  if (document.visibilityState !=='visible' || !currentUser) return;
+ recordLastOpened(currentUser.id);
  checkTriviaDot();
  const pageEl = document.getElementById('page-trivia');
  if (pageEl && pageEl.classList.contains('active') && triviaLastRenderedDate && triviaLastRenderedDate !== triviaToday()) {
@@ -2111,6 +2115,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
 
  await sb.from('profiles').update({ peels: newPeels }).eq('id', currentUser.id);
  currentProfile.peels = newPeels;
+ recordLastOpened(currentUser.id); // real activity, not just a page load — catches someone who's kept the tab open for days
 
  await refreshHeader();
  renderPredictionsTab();
