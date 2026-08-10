@@ -50,6 +50,21 @@
  .trivia-timer{font-family:'Bangers',cursive;font-size:38px;color:#9a8200;text-align:center;line-height:1}
  .trivia-timer.low{color:#d64545}
  .trivia-streak-pill{display:inline-block;background:#fff8d6;color:#9a8200;border-radius:50px;padding:4px 12px;font-size:12px;font-weight:700;margin-top:6px}
+ .reels-feed{height:calc(100vh - 230px);min-height:420px;max-height:800px;overflow-y:auto;scroll-snap-type:y mandatory;border-radius:14px;background:#0b0b12;scrollbar-width:none;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
+ .reels-feed::-webkit-scrollbar{display:none}
+ .reel-item{position:relative;height:100%;width:100%;scroll-snap-align:start;scroll-snap-stop:always;display:flex;align-items:center;justify-content:center;background:#0b0b12;overflow:hidden}
+ .reel-frame{width:100%;max-height:100%;aspect-ratio:16/9;position:relative}
+ .reel-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+ .reel-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.6);cursor:pointer}
+ .reel-play-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:22px;color:#1a1a2e;cursor:pointer;pointer-events:none}
+ .reel-info{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 20px;background:linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0));color:#fff;z-index:2;pointer-events:none}
+ .reel-category-badge{display:inline-block;background:var(--theme-primary);color:var(--theme-on-primary);padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;margin-bottom:6px}
+ .reel-title{font-family:'Bangers',cursive;font-size:21px;line-height:1.15;margin-bottom:3px}
+ .reel-meta{font-size:12px;opacity:0.9;margin-bottom:4px;font-weight:600}
+ .reel-desc{font-size:12px;opacity:0.8;max-height:2.8em;overflow:hidden;line-height:1.4}
+ .reel-mute-btn{position:absolute;top:14px;right:14px;z-index:3;background:rgba(0,0,0,0.55);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer}
+ .reel-empty{color:#e5e5ea;text-align:center;padding:60px 20px}
+ @media (min-width: 700px){ .reels-feed{max-width:420px;margin:0 auto} }
  .pick-btn .btn-payout{display:block;font-size:11px;font-weight:400;margin-top:2px;opacity:0.75}
  .wager-row{display:flex;align-items:center;gap:10px}
  .wager-input{flex:1;background:#fff;border:1px solid #d8d8e2;color:#1a1a2e;padding:8px 12px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px}
@@ -195,6 +210,7 @@
 <button onclick="showPage('help',null);closeTopMenu()">Help</button>
 <button onclick="showPage('notifications',null);closeTopMenu()" style="position:relative">Notifications<span id="notif-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
 <button onclick="showPage('trivia',null);closeTopMenu()" style="position:relative">Daily Trivia<span id="trivia-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
+<button onclick="showPage('reels',null);closeTopMenu()">Peels Reels</button>
 <button onclick="showPage('referrals',null);closeTopMenu()">Referrals</button>
 <button onclick="showPage('mybets',null);closeTopMenu()">My Bets</button>
 <button onclick="showPage('leaderboard',null);closeTopMenu()">Leaderboard</button>
@@ -212,6 +228,7 @@
 <div id="page-mybets" class="page"><h2>My Bets</h2><div id="my-bets-stats" class="grid2" style="margin-bottom:14px"></div><div class="card" id="my-bets-list"></div></div>
 <div id="page-notifications" class="page"><h2>Notifications</h2><div class="card" id="notifications-list"></div></div>
 <div id="page-trivia" class="page"><h2>Daily Trivia</h2><div id="trivia-content"></div></div>
+<div id="page-reels" class="page"><h2>Peels Reels</h2><div id="reels-feed" class="reels-feed"></div></div>
 <div id="page-referrals" class="page"><h2>Referrals</h2><div id="referrals-content"></div></div>
 <div id="page-news" class="page"><h2>📰 News</h2><div id="news-list"></div></div>
 <div id="page-help" class="page"><h2>❓ Help</h2><div id="help-list"></div></div>
@@ -451,6 +468,41 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 <div class="auth-error" id="tq-error"></div>
 <button class="admin-btn" onclick="addTriviaQuestion()">Add to Question Bank</button>
 <div id="trivia-bank-list" style="margin-top:14px"></div>
+</div>
+</details>
+</div>
+<div class="card" style="margin-top:12px">
+<details>
+<summary style="cursor:pointer;color:#9a8200;font-weight:700;font-size:15px;list-style:none">▸ Peels Reels</summary>
+<div style="margin-top:10px">
+<p style="font-size:12px;color:#8a8a96;margin-bottom:10px">Paste a normal YouTube URL (or just the video ID) — it'll be embedded directly from YouTube, nothing gets downloaded or re-hosted.</p>
+<div class="input-group"><label>YouTube URL or Video ID</label><input class="modal-input" id="reel-url" placeholder="https://youtube.com/watch?v=..."/></div>
+<div class="input-group"><label>Title</label><input class="modal-input" id="reel-title" placeholder="Walk-off grand slam!"/></div>
+<div class="grid2">
+<div class="input-group"><label>Player</label><input class="modal-input" id="reel-player" placeholder="Player name"/></div>
+<div class="input-group"><label>Team</label><input class="modal-input" id="reel-team" placeholder="Team name"/></div>
+</div>
+<div class="grid2">
+<div class="input-group"><label>Category</label>
+<select class="modal-input" id="reel-category">
+<option>Home Run</option>
+<option>Walk-Off</option>
+<option>Trick Play</option>
+<option>Steal First</option>
+<option>Catch</option>
+<option>Pitching</option>
+<option>Funny Moment</option>
+<option>Other</option>
+</select>
+</div>
+<div class="input-group"><label>Date</label><input class="modal-input" id="reel-date" type="date"/></div>
+</div>
+<div class="input-group"><label>Description (optional)</label>
+<textarea id="reel-description" rows="2" placeholder="Short caption..." style="width:100%;background:#fff;border:1px solid #f0dd80;color:#1a1a2e;padding:10px 12px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical"></textarea>
+</div>
+<div class="auth-error" id="reel-error"></div>
+<button class="admin-btn" onclick="addReel()">Add Reel</button>
+<div id="admin-reels-list" style="margin-top:14px"></div>
 </div>
 </details>
 </div>
@@ -885,7 +937,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  const tabId ='tab-' + (p ==='games' ?'games' : p ==='cards' ?'cards' : p ==='admin' ?'admin' : p ==='championship' ?'championship' : null);
  const tabEl = document.getElementById(tabId);
  if (tabEl) tabEl.classList.add('active');
- ({ games: renderUnifiedGamesPage, mybets: renderMyBets, leaderboard: renderLeaderboard, admin: renderAdmin, cards: renderCardsPage, championship: renderChampionshipPage, notifications: renderNotificationsPage, news: renderNewsPage, help: renderHelpPage, trivia: renderTriviaPage, referrals: renderReferralsPage })[p]?.();
+ ({ games: renderUnifiedGamesPage, mybets: renderMyBets, leaderboard: renderLeaderboard, admin: renderAdmin, cards: renderCardsPage, championship: renderChampionshipPage, notifications: renderNotificationsPage, news: renderNewsPage, help: renderHelpPage, trivia: renderTriviaPage, referrals: renderReferralsPage, reels: renderReelsPage })[p]?.();
  closeTopMenu();
  setTimeout(() =>maybeShowTabExplainer(p), 300);
  }
@@ -993,6 +1045,164 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 <div style="font-size:12px;color:#8a8a96;font-weight:700;margin-bottom:8px">${(referred||[]).length} referral${(referred||[]).length===1?'':'s'} · ${totalEarned} Peels earned</div>
 ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="stat-label">${escapeHtml(r.profiles?.username||'Unknown')}</span><span class="stat-val" style="color:#1e8a4c;font-weight:700">+${r.referrer_bonus||REFERRAL_BONUS_REFERRER} Peels</span></div>`).join('') :'<div style="color:#b0b0bc;font-size:13px">No referrals yet — share your code!</div>'}
 </div>`;
+ }
+
+ // ─── Peels Reels ──────────────────────────────────────────
+ // Pulls a normal YouTube URL apart to find the 11-character video ID.
+ // Handles watch?v=, youtu.be/, shorts/, embed/, and a bare ID pasted in
+ // directly. Returns null if nothing recognizable is found.
+ function extractYouTubeId(input) {
+ if (!input) return null;
+ const s = input.trim();
+ if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s; // already a bare video ID
+ const patterns = [
+ /(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/|youtube\.com\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+ ];
+ for (const re of patterns) {
+ const m = s.match(re);
+ if (m) return m[1];
+ }
+ // Fallback: check the v= query param anywhere in the string
+ try {
+ const url = new URL(s);
+ const v = url.searchParams.get('v');
+ if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+ } catch(e) { /* not a valid URL, nothing more to try */ }
+ return null;
+ }
+
+ let reelsObserver = null;
+ let reelsMuted = true; // start muted - browsers block autoplay-with-sound anyway, so this avoids a silent autoplay failure
+
+ async function renderReelsPage() {
+ const feedEl = document.getElementById('reels-feed');
+ feedEl.innerHTML ='<div class="loading" style="color:#fff"><span class="spinner"></span>Loading reels...</div>';
+
+ const { data: reels, error } = await sb.from('reels').select('*').order('highlight_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
+ if (error) { feedEl.innerHTML = `<div class="reel-empty">Error loading reels:${escapeHtml(error.message)}</div>`; return; }
+ if (!reels?.length) { feedEl.innerHTML ='<div class="reel-empty">No highlights posted yet — check back soon! 🍌</div>'; return; }
+
+ feedEl.innerHTML = reels.map((r, i) =>reelItemHTML(r, i)).join('');
+
+ // Lazy playback: only the reel that's actually (mostly) on screen gets a
+ // live YouTube player loaded. Everything else just shows its thumbnail,
+ // so scrolling through a long feed doesn't load dozens of players at once.
+ if (reelsObserver) reelsObserver.disconnect();
+ reelsObserver = new IntersectionObserver((entries) => {
+ entries.forEach(entry => {
+ const frame = entry.target.querySelector('.reel-frame');
+ if (entry.isIntersecting && entry.intersectionRatio >0.6) {
+ activateReel(frame);
+ } else {
+ deactivateReel(frame);
+ }
+ });
+ }, { threshold: [0, 0.6, 1] });
+
+ feedEl.querySelectorAll('.reel-item').forEach(el =>reelsObserver.observe(el));
+ }
+
+ function reelItemHTML(r, index) {
+ const thumbUrl = `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg`;
+ return `<div class="reel-item" data-reel-id="${r.id}">
+<div class="reel-frame" data-yt-id="${escapeAttr(r.youtube_id)}" data-loaded="0" onclick="toggleReelSound(this)">
+<img class="reel-thumb" src="${thumbUrl}" loading="lazy" alt=""/>
+<div class="reel-play-icon">▶</div>
+</div>
+<button class="reel-mute-btn" onclick="event.stopPropagation();toggleReelSound(this.closest('.reel-item').querySelector('.reel-frame'))">${reelsMuted?'🔇':'🔊'}</button>
+<div class="reel-info">
+<span class="reel-category-badge">${escapeHtml(r.category||'Highlight')}</span>
+<div class="reel-title">${escapeHtml(r.title||'')}</div>
+<div class="reel-meta">${[r.player, r.team].filter(Boolean).map(escapeHtml).join(' · ')}${r.highlight_date ?` · ${new Date(r.highlight_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` :''}</div>
+${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :''}
+</div>
+</div>`;
+ }
+
+ function activateReel(frame) {
+ if (!frame || frame.dataset.loaded ==='1') return;
+ const id = frame.dataset.ytId;
+ const mute = reelsMuted ?1 :0;
+ const iframe = document.createElement('iframe');
+ iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=${mute}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
+ iframe.allow ='autoplay; encrypted-media; picture-in-picture';
+ iframe.allowFullscreen = true;
+ frame.querySelector('.reel-thumb')?.remove();
+ frame.querySelector('.reel-play-icon')?.remove();
+ frame.appendChild(iframe);
+ frame.dataset.loaded ='1';
+ }
+
+ function deactivateReel(frame) {
+ if (!frame || frame.dataset.loaded !=='1') return;
+ // Clearing the iframe entirely (rather than just messaging pause) fully
+ // stops playback and frees the player, keeping memory/network use down
+ // on a feed that could grow to a lot of reels over time.
+ frame.querySelector('iframe')?.remove();
+ const thumbUrl = `https://img.youtube.com/vi/${frame.dataset.ytId}/hqdefault.jpg`;
+ frame.insertAdjacentHTML('afterbegin', `<img class="reel-thumb" src="${thumbUrl}" alt=""/><div class="reel-play-icon">▶</div>`);
+ frame.dataset.loaded ='0';
+ }
+
+ function toggleReelSound(frame) {
+ if (!frame) return;
+ reelsMuted = !reelsMuted;
+ document.querySelectorAll('.reel-mute-btn').forEach(b =>b.textContent = reelsMuted ?'🔇' :'🔊');
+ const iframe = frame.querySelector('iframe');
+ if (iframe) {
+ // Talk to the already-loaded player via postMessage rather than
+ // reloading it, so toggling sound doesn't restart the video.
+ iframe.contentWindow?.postMessage(JSON.stringify({ event:'command', func: reelsMuted ?'mute' :'unMute', args:[] }), '*');
+ } else {
+ activateReel(frame); // nothing loaded yet (e.g. tapped the paused thumbnail) - start it now
+ }
+ }
+
+ // ─── Admin: Peels Reels ─────────────────────────────────────
+ async function addReel() {
+ setError('reel-error','');
+ const rawUrl = document.getElementById('reel-url').value.trim();
+ const title = document.getElementById('reel-title').value.trim();
+ const player = document.getElementById('reel-player').value.trim();
+ const team = document.getElementById('reel-team').value.trim();
+ const category = document.getElementById('reel-category').value;
+ const date = document.getElementById('reel-date').value ||null;
+ const description = document.getElementById('reel-description').value.trim();
+
+ const youtubeId = extractYouTubeId(rawUrl);
+ if (!youtubeId) { setError('reel-error',"Couldn't find a video ID in that — paste a full YouTube URL or an 11-character video ID."); return; }
+ if (!title) { setError('reel-error','Enter a title.'); return; }
+
+ const { error } = await sb.from('reels').insert({
+ youtube_id: youtubeId, title, description: description ||null,
+ player: player ||null, team: team ||null, category, highlight_date: date
+ });
+ if (error) { setError('reel-error', error.message); return; }
+
+ ['reel-url','reel-title','reel-player','reel-team','reel-date','reel-description'].forEach(id =>document.getElementById(id).value ='');
+ toast('Reel added!');
+ renderAdminReelsList();
+ }
+
+ async function renderAdminReelsList() {
+ const el = document.getElementById('admin-reels-list');
+ if (!el) return;
+ const { data: reels } = await sb.from('reels').select('*').order('created_at', { ascending: false });
+ if (!reels?.length) { el.innerHTML ='<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No reels yet — add one above.</div>'; return; }
+ el.innerHTML = reels.map(r =>`
+<div class="admin-game-item">
+<div class="admin-game-info">
+<strong>${escapeHtml(r.title)}</strong>
+<small style="color:#8a8a96">${escapeHtml(r.category||'')}${r.player?' · '+escapeHtml(r.player):''}${r.team?' · '+escapeHtml(r.team):''}</small>
+</div>
+<button class="result-btn" style="padding:5px 10px;font-size:12px" onclick="deleteReel('${r.id}')">Delete</button>
+</div>`).join('');
+ }
+
+ async function deleteReel(id) {
+ await sb.from('reels').delete().eq('id', id);
+ toast('Reel deleted.');
+ renderAdminReelsList();
  }
 
 
@@ -2864,7 +3074,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function renderAdmin() {
- await Promise.all([renderAdminGames(), renderAdminPlayers(), renderAdminBots(), populateChampionshipSelect(), renderTriviaBankList(), renderTeamFandom()]);
+ await Promise.all([renderAdminGames(), renderAdminPlayers(), renderAdminBots(), populateChampionshipSelect(), renderTriviaBankList(), renderTeamFandom(), renderAdminReelsList()]);
  renderAdminCardsSection();
  }
 
