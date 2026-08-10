@@ -50,11 +50,16 @@
  .trivia-timer{font-family:'Bangers',cursive;font-size:38px;color:#9a8200;text-align:center;line-height:1}
  .trivia-timer.low{color:#d64545}
  .trivia-streak-pill{display:inline-block;background:#fff8d6;color:#9a8200;border-radius:50px;padding:4px 12px;font-size:12px;font-weight:700;margin-top:6px}
- .reels-feed{height:calc(100vh - 230px);min-height:420px;max-height:800px;overflow-y:auto;scroll-snap-type:y mandatory;border-radius:14px;background:#0b0b12;scrollbar-width:none;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
+ .reels-feed{height:calc(100vh - 230px);min-height:420px;max-height:800px;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;border-radius:14px;background:#0b0b12;scrollbar-width:none;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
  .reels-feed::-webkit-scrollbar{display:none}
+ .reels-feed.fullscreen-mode{position:fixed;top:0;left:50%;transform:translateX(-50%);height:100dvh;width:100%;max-width:480px;border-radius:0;box-shadow:none;z-index:80;margin:0}
  .reel-item{position:relative;height:100%;width:100%;scroll-snap-align:start;scroll-snap-stop:always;display:flex;align-items:center;justify-content:center;background:#0b0b12;overflow:hidden}
  .reel-frame{width:100%;max-height:100%;aspect-ratio:16/9;position:relative}
- .reel-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+ .fullscreen-mode .reel-frame{width:100%;height:100%;max-height:100%;aspect-ratio:auto}
+ .reel-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none;pointer-events:none}
+ .reel-frame.controls-active iframe{pointer-events:auto}
+ .reel-controls-toggle{position:absolute;bottom:96px;right:14px;z-index:3;background:rgba(0,0,0,0.55);color:#fff;border:none;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer}
+ .reel-controls-toggle.active{background:var(--theme-primary);color:var(--theme-on-primary)}
  .reel-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.6);cursor:pointer}
  .reel-play-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:22px;color:#1a1a2e;cursor:pointer;pointer-events:none}
  .reel-info{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 20px;background:linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0));color:#fff;z-index:2;pointer-events:none}
@@ -210,7 +215,6 @@
 <button onclick="showPage('help',null);closeTopMenu()">Help</button>
 <button onclick="showPage('notifications',null);closeTopMenu()" style="position:relative">Notifications<span id="notif-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
 <button onclick="showPage('trivia',null);closeTopMenu()" style="position:relative">Daily Trivia<span id="trivia-dot-menu" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#e63946"></span></button>
-<button onclick="showPage('reels',null);closeTopMenu()">Peels Reels</button>
 <button onclick="showPage('referrals',null);closeTopMenu()">Referrals</button>
 <button onclick="showPage('mybets',null);closeTopMenu()">My Bets</button>
 <button onclick="showPage('leaderboard',null);closeTopMenu()">Leaderboard</button>
@@ -519,6 +523,9 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 </button>
 <button class="bottom-tab" id="tab-championship" onclick="showPage('championship',null)">
 <span class="bottom-tab-icon">🏆</span><span>Champ</span>
+</button>
+<button class="bottom-tab" id="tab-reels" onclick="showPage('reels',null)">
+<span class="bottom-tab-icon">▶</span><span>Reels</span>
 </button>
 <button class="bottom-tab" id="tab-admin" style="display:none" onclick="showPage('admin',null)">
 <span class="bottom-tab-icon">⚙</span><span>Admin</span>
@@ -934,9 +941,18 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
  document.querySelectorAll('.page').forEach(x =>x.classList.remove('active'));
  document.querySelectorAll('.bottom-tab').forEach(x =>x.classList.remove('active'));
  document.getElementById('page-' + p).classList.add('active');
- const tabId ='tab-' + (p ==='games' ?'games' : p ==='cards' ?'cards' : p ==='admin' ?'admin' : p ==='championship' ?'championship' : null);
+ const tabId ='tab-' + (p ==='games' ?'games' : p ==='cards' ?'cards' : p ==='admin' ?'admin' : p ==='championship' ?'championship' : p ==='reels' ?'reels' : null);
  const tabEl = document.getElementById(tabId);
  if (tabEl) tabEl.classList.add('active');
+ // Reels wants a true edge-to-edge, full-viewport feed (per explicit
+ // request) rather than living inside the normal padded/max-width page
+ // shell every other page uses. Hiding the header/bottom-tabs only while
+ // actually on this page, and restoring them the instant you leave it,
+ // keeps every other page's chrome completely untouched.
+ const isReels = p ==='reels';
+ document.querySelector('.header').style.display = isReels ?'none' :'flex';
+ document.querySelector('.bottom-tabs').style.display = isReels ?'none' :'flex';
+ document.getElementById('reels-feed').classList.toggle('fullscreen-mode', isReels);
  ({ games: renderUnifiedGamesPage, mybets: renderMyBets, leaderboard: renderLeaderboard, admin: renderAdmin, cards: renderCardsPage, championship: renderChampionshipPage, notifications: renderNotificationsPage, news: renderNewsPage, help: renderHelpPage, trivia: renderTriviaPage, referrals: renderReferralsPage, reels: renderReelsPage })[p]?.();
  closeTopMenu();
  setTimeout(() =>maybeShowTabExplainer(p), 300);
@@ -1110,6 +1126,7 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
 <div class="reel-play-icon">▶</div>
 </div>
 <button class="reel-mute-btn" onclick="event.stopPropagation();toggleReelSound(this.closest('.reel-item').querySelector('.reel-frame'))">${reelsMuted?'🔇':'🔊'}</button>
+<button class="reel-controls-toggle" onclick="event.stopPropagation();toggleReelControls(this)">⚙ YouTube controls</button>
 <div class="reel-info">
 <span class="reel-category-badge">${escapeHtml(r.category||'Highlight')}</span>
 <div class="reel-title">${escapeHtml(r.title||'')}</div>
@@ -1119,6 +1136,22 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
 </div>`;
  }
 
+ // By default the iframe has pointer-events:none (see CSS) so every swipe
+ // over the video passes straight through to the feed's own scroll
+ // container instead of being captured by the cross-origin YouTube embed -
+ // that capture is what breaks scroll-snap swiping in most YouTube-in-a-
+ // feed implementations. This button is the one deliberate exception: it
+ // temporarily makes the iframe interactive so the person can reach
+ // YouTube's own control bar (including its own fullscreen button) if they
+ // actually want it. Nothing here ever calls requestFullscreen() itself -
+ // fullscreen only ever happens if the person clicks YouTube's own button.
+ function toggleReelControls(btn) {
+ const frame = btn.closest('.reel-item').querySelector('.reel-frame');
+ const active = frame.classList.toggle('controls-active');
+ btn.classList.toggle('active', active);
+ btn.textContent = active ?'✓ Swipe locked — tap to unlock' :'⚙ YouTube controls';
+ }
+
  function activateReel(frame) {
  if (!frame || frame.dataset.loaded ==='1') return;
  const id = frame.dataset.ytId;
@@ -1126,7 +1159,7 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
  const iframe = document.createElement('iframe');
  iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=${mute}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
  iframe.allow ='autoplay; encrypted-media; picture-in-picture';
- iframe.allowFullscreen = true;
+ iframe.allowFullscreen = true; // permits the person to manually hit YouTube's own fullscreen button - never triggered automatically
  frame.querySelector('.reel-thumb')?.remove();
  frame.querySelector('.reel-play-icon')?.remove();
  frame.appendChild(iframe);
@@ -1137,11 +1170,17 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
  if (!frame || frame.dataset.loaded !=='1') return;
  // Clearing the iframe entirely (rather than just messaging pause) fully
  // stops playback and frees the player, keeping memory/network use down
- // on a feed that could grow to a lot of reels over time.
+ // on a feed that could grow to a lot of reels over time. Also guarantees
+ // only ever one YouTube player exists in the DOM at a time.
  frame.querySelector('iframe')?.remove();
  const thumbUrl = `https://img.youtube.com/vi/${frame.dataset.ytId}/hqdefault.jpg`;
  frame.insertAdjacentHTML('afterbegin', `<img class="reel-thumb" src="${thumbUrl}" alt=""/><div class="reel-play-icon">▶</div>`);
  frame.dataset.loaded ='0';
+ // Reset swipe-lock so a reel you scroll back to always starts swipeable,
+ // never stuck in the interactive state from a previous visit.
+ frame.classList.remove('controls-active');
+ const toggleBtn = frame.closest('.reel-item')?.querySelector('.reel-controls-toggle');
+ if (toggleBtn) { toggleBtn.classList.remove('active'); toggleBtn.textContent ='⚙ YouTube controls'; }
  }
 
  function toggleReelSound(frame) {
@@ -4125,6 +4164,9 @@ ${rows||'<div style="font-size:13px;color:#a0a0ae;padding:8px 0">No games logged
  document.querySelectorAll('.bottom-tab').forEach(x =>x.classList.remove('active'));
  document.getElementById('page-games').classList.add('active');
  document.getElementById('tab-games').classList.add('active');
+ document.querySelector('.header').style.display ='flex';
+ document.querySelector('.bottom-tabs').style.display ='flex';
+ document.getElementById('reels-feed').classList.remove('fullscreen-mode');
  renderUnifiedGamesPage();
  }
  });
