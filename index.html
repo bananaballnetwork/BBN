@@ -1088,7 +1088,31 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  }
 
  let reelsObserver = null;
- let reelsMuted = true; // start muted - browsers block autoplay-with-sound anyway, so this avoids a silent autoplay failure
+ let reelsMuted = true; // start muted - browsers block autoplay-with-sound outright, so this is the only way the first video can play at all
+ let firstInteractionArmed = false;
+
+ // Browsers only block audible autoplay with zero prior interaction - they
+ // do NOT block programmatically unmuting in response to a genuine user
+ // gesture. So: the very first video is unavoidably silent, but the
+ // instant the person does anything at all on the page (scroll to the next
+ // reel, tap, whatever), treat that as permission to turn sound on from
+ // then on, without ever requiring a deliberate tap on the mute icon.
+ function armFirstInteractionUnmute() {
+ if (firstInteractionArmed) return;
+ firstInteractionArmed = true;
+ const unlock = () => {
+ if (!reelsMuted) return; // already unmuted, e.g. they tapped the mute button directly
+ reelsMuted = false;
+ document.querySelectorAll('.reel-mute-btn').forEach(b =>b.textContent ='🔊');
+ document.querySelectorAll('.reel-frame[data-loaded="1"] iframe').forEach(iframe => {
+ iframe.contentWindow?.postMessage(JSON.stringify({ event:'command', func:'unMute', args:[] }),'*');
+ });
+ };
+ const feedEl = document.getElementById('reels-feed');
+ ['scroll','touchstart','pointerdown'].forEach(evt =>
+ feedEl.addEventListener(evt, unlock, { once: true, passive: true })
+ );
+ }
 
  async function renderReelsPage() {
  const feedEl = document.getElementById('reels-feed');
@@ -1099,6 +1123,13 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  if (!reels?.length) { feedEl.innerHTML ='<div class="reel-empty">No highlights posted yet — check back soon! 🍌</div>'; return; }
 
  feedEl.innerHTML = reels.map((r, i) =>reelItemHTML(r, i)).join('');
+
+ // Don't wait on the observer's first (inherently async, next-frame) callback
+ // for the very first video — start it immediately so there's no visible
+ // delay/dead-frame before playback begins on page load.
+ const firstFrame = feedEl.querySelector('.reel-frame');
+ if (firstFrame) activateReel(firstFrame);
+ armFirstInteractionUnmute();
 
  // Lazy playback: only the reel that's actually (mostly) on screen gets a
  // live YouTube player loaded. Everything else just shows its thumbnail,
