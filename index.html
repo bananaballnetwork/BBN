@@ -1155,7 +1155,7 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  function reelItemHTML(r, index) {
  const thumbUrl = `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg`;
  return `<div class="reel-item" data-reel-id="${r.id}">
-<div class="reel-frame" data-yt-id="${escapeAttr(r.youtube_id)}" data-loaded="0" onclick="toggleReelSound(this)">
+<div class="reel-frame" data-yt-id="${escapeAttr(r.youtube_id)}" data-loaded="0" onclick="toggleReelPlayback(this)">
 <img class="reel-thumb" src="${thumbUrl}" loading="lazy" alt=""/>
 <div class="reel-play-icon">▶</div>
 </div>
@@ -1194,10 +1194,22 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
  iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=${mute}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
  iframe.allow ='autoplay; encrypted-media; picture-in-picture';
  iframe.allowFullscreen = true; // permits the person to manually hit YouTube's own fullscreen button - never triggered automatically
+ // The autoplay=1 URL param alone isn't reliably honored on iOS Safari for
+ // an iframe created dynamically after page load - it often just sits on
+ // YouTube's own paused thumbnail instead. As a fallback, explicitly send
+ // a "play" command once the player has actually loaded and had a moment
+ // to initialize, which reliably starts it even when the URL param alone
+ // didn't.
+ iframe.addEventListener('load', () => {
+ setTimeout(() => {
+ iframe.contentWindow?.postMessage(JSON.stringify({ event:'command', func:'playVideo', args:[] }),'*');
+ }, 300);
+ });
  frame.querySelector('.reel-thumb')?.remove();
  frame.querySelector('.reel-play-icon')?.remove();
  frame.appendChild(iframe);
  frame.dataset.loaded ='1';
+ frame.dataset.playing ='1';
  }
 
  function deactivateReel(frame) {
@@ -1210,6 +1222,7 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
  const thumbUrl = `https://img.youtube.com/vi/${frame.dataset.ytId}/hqdefault.jpg`;
  frame.insertAdjacentHTML('afterbegin', `<img class="reel-thumb" src="${thumbUrl}" alt=""/><div class="reel-play-icon">▶</div>`);
  frame.dataset.loaded ='0';
+ frame.dataset.playing ='0';
  // Reset swipe-lock so a reel you scroll back to always starts swipeable,
  // never stuck in the interactive state from a previous visit.
  frame.classList.remove('controls-active');
@@ -1227,8 +1240,22 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
  // reloading it, so toggling sound doesn't restart the video.
  iframe.contentWindow?.postMessage(JSON.stringify({ event:'command', func: reelsMuted ?'mute' :'unMute', args:[] }), '*');
  } else {
- activateReel(frame); // nothing loaded yet (e.g. tapped the paused thumbnail) - start it now
+ activateReel(frame); // nothing loaded yet - start it now
  }
+ }
+
+ // Tapping the video itself. If nothing's loaded yet, start it (covers the
+ // case where autoplay hasn't kicked in, or the observer hasn't fired yet).
+ // If it's already loaded, toggle play/pause directly via postMessage -
+ // this is the reliable fallback for iOS Safari, where the autoplay URL
+ // param alone often doesn't actually start a dynamically-inserted iframe.
+ function toggleReelPlayback(frame) {
+ if (!frame) return;
+ const iframe = frame.querySelector('iframe');
+ if (!iframe) { activateReel(frame); return; }
+ const playing = frame.dataset.playing ==='1';
+ iframe.contentWindow?.postMessage(JSON.stringify({ event:'command', func: playing ?'pauseVideo' :'playVideo', args:[] }),'*');
+ frame.dataset.playing = playing ?'0' :'1';
  }
 
  // ─── Admin: Peels Reels ─────────────────────────────────────
