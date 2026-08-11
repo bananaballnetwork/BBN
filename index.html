@@ -1094,6 +1094,24 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  let reelsMuted = true; // start muted - browsers block autoplay-with-sound outright, so this is the only way the first video can play at all
  let firstInteractionArmed = false;
 
+ // YouTube's embedded player broadcasts its real state via postMessage once
+ // enablejsapi=1 is set - no need for the full IFrame API script just to
+ // listen for it. This is what makes tap-to-play/pause actually reliable:
+ // without tracking real state, a video that silently failed to autoplay
+ // would still be assumed "playing," so a tap would send pause instead of
+ // play and look like it did nothing.
+ window.addEventListener('message', (event) => {
+ if (typeof event.data !=='string') return;
+ let data;
+ try { data = JSON.parse(event.data); } catch(e) { return; }
+ if (data.event !=='infoDelivery' || typeof data.info?.playerState !=='number') return;
+ document.querySelectorAll('.reel-frame[data-loaded="1"] iframe').forEach(iframe => {
+ if (iframe.contentWindow !== event.source) return;
+ const frame = iframe.closest('.reel-frame');
+ if (frame) frame.dataset.playing = data.info.playerState ===1 ?'1' :'0'; // 1 = YT.PlayerState.PLAYING
+ });
+ });
+
  // Browsers only block audible autoplay with zero prior interaction - they
  // do NOT block programmatically unmuting in response to a genuine user
  // gesture. So: the very first video is unavoidably silent, but the
@@ -1124,6 +1142,12 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  const { data: reels, error } = await sb.from('reels').select('*').order('highlight_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
  if (error) { feedEl.innerHTML = `<div class="reel-empty">Error loading reels:${escapeHtml(error.message)}</div>`; return; }
  if (!reels?.length) { feedEl.innerHTML ='<div class="reel-empty">No highlights posted yet — check back soon! 🍌</div>'; return; }
+
+ // Fisher-Yates shuffle - fresh random order every time the feed opens
+ for (let i = reels.length - 1; i > 0; i--) {
+ const j = Math.floor(Math.random() * (i + 1));
+ [reels[i], reels[j]] = [reels[j], reels[i]];
+ }
 
  feedEl.innerHTML = reels.map((r, i) =>reelItemHTML(r, i)).join('');
 
@@ -1197,19 +1221,24 @@ ${r.description ? `<div class="reel-desc">${escapeHtml(r.description)}</div>` :'
  // The autoplay=1 URL param alone isn't reliably honored on iOS Safari for
  // an iframe created dynamically after page load - it often just sits on
  // YouTube's own paused thumbnail instead. As a fallback, explicitly send
- // a "play" command once the player has actually loaded and had a moment
- // to initialize, which reliably starts it even when the URL param alone
- // didn't.
+ // a "play" command a few times over the first second or so (the exact
+ // moment the embedded player is ready to receive commands isn't something
+ // we can detect precisely without the full IFrame API, so a few staggered
+ // attempts is the reliable practical fix). Stops early once real state
+ // tracking (see the message listener below) confirms it's actually playing.
  iframe.addEventListener('load', () => {
+ [300, 700, 1200].forEach(delay => {
  setTimeout(() => {
+ if (frame.dataset.playing ==='1' || frame.dataset.loaded !=='1') return;
  iframe.contentWindow?.postMessage(JSON.stringify({ event:'command', func:'playVideo', args:[] }),'*');
- }, 300);
+ }, delay);
+ });
  });
  frame.querySelector('.reel-thumb')?.remove();
  frame.querySelector('.reel-play-icon')?.remove();
  frame.appendChild(iframe);
  frame.dataset.loaded ='1';
- frame.dataset.playing ='1';
+ frame.dataset.playing ='0'; // becomes '1' only once the real state-tracking listener confirms it actually started
  }
 
  function deactivateReel(frame) {
