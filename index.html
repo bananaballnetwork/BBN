@@ -304,7 +304,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 </div>
 <div class="grid2">
 <div class="input-group"><label>Game Date/Time</label><input id="a-date" type="datetime-local"/></div>
-
+<div class="input-group"><label>Highlights Video URL (optional)</label><input id="a-highlight-url" placeholder="https://youtube.com/watch?v=..."/></div>
 </div>
 <button class="admin-btn" onclick="addGame()">+ Add Game</button>
 </div>
@@ -707,6 +707,7 @@ Or email us directly at <a href="mailto:peelspickem@gmail.com" style="color:#9a8
 <div class="input-group"><label>Game Date/Time</label><input id="edit-date" type="datetime-local"/></div>
 <div class="input-group"><label>Betting Locks At</label><input id="edit-lock" type="datetime-local"/></div>
 </div>
+<div class="input-group"><label>Highlights Video URL (optional)</label><input id="edit-highlight-url" placeholder="https://youtube.com/watch?v=..."/></div>
 <p style="font-size:12px;color:#a08e00;margin-bottom:12px">️ Existing bets keep their original odds — only new bets use updated odds.</p>
 <div class="auth-error" id="edit-game-error"></div>
 <div class="modal-btns">
@@ -2242,6 +2243,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  <button class="game-tab-btn active" id="gtab-gameplay" onclick="switchGameTab('gameplay')">Gameplay</button>
  <button class="game-tab-btn" id="gtab-predictions" onclick="switchGameTab('predictions')">Predictions</button>
  <button class="game-tab-btn" id="gtab-boxscore" onclick="switchGameTab('boxscore')">Box Score</button>
+ <button class="game-tab-btn" id="gtab-highlights" onclick="switchGameTab('highlights')">Highlights</button>
  </div>
  <div id="game-tab-content"></div>
  `;
@@ -2280,7 +2282,26 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  document.getElementById('gtab-' + tab).classList.add('active');
  if (tab ==='predictions') renderPredictionsTab();
  else if (tab ==='gameplay') renderGameplayTab();
+ else if (tab ==='highlights') renderHighlightsTab();
  else renderBoxScoreTab();
+ }
+
+ // Just a normal 16:9 YouTube embed for the one long-form highlights video
+ // attached to this specific game - not the Reels swipe-feed, no autoplay,
+ // no lazy-load games needed since there's only ever one video here.
+ function renderHighlightsTab() {
+ const g = currentGameDetail;
+ const contentEl = document.getElementById('game-tab-content');
+ if (!g.highlight_youtube_id) {
+ contentEl.innerHTML = `<div class="no-games">No highlights video added yet${currentProfile?.is_admin?' — add one from Admin → Manage Games.':'.'}</div>`;
+ return;
+ }
+ contentEl.innerHTML = `
+<div class="card" style="padding:0;overflow:hidden">
+<div style="position:relative;width:100%;aspect-ratio:16/9">
+<iframe src="https://www.youtube.com/embed/${escapeAttr(g.highlight_youtube_id)}?rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+</div>
+</div>`;
  }
 
  async function renderPredictionsTab() {
@@ -3237,13 +3258,15 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const wp2 = parseFloat(document.getElementById('a-wp2').value);
  const date = document.getElementById('a-date').value;
  const lock = date; // Lock time = game start time
+ const highlightUrl = document.getElementById('a-highlight-url').value.trim();
  if (!t1 || !t2) { toast('Enter both team names'); return; }
  if (isNaN(wp1) || isNaN(wp2) || wp1< 1 || wp2< 1) { toast('Enter valid win percentages'); return; }
+ if (highlightUrl && !extractYouTubeId(highlightUrl)) { toast("Couldn't find a video ID in that highlights URL — leave it blank or check the link."); return; }
  // Convert local datetime to UTC for storage
  const toUTC = (local) =>local ? new Date(local).toISOString() : null;
- const { error } = await sb.from('games').insert({ t1, t2, wp1, wp2, game_date: toUTC(date), lock_time: toUTC(lock), status:'open' });
+ const { error } = await sb.from('games').insert({ t1, t2, wp1, wp2, game_date: toUTC(date), lock_time: toUTC(lock), status:'open', highlight_youtube_id: highlightUrl ?extractYouTubeId(highlightUrl) :null });
  if (error) { toast('Error adding game:' + error.message); return; }
- ['a-t1','a-t2','a-wp1','a-wp2','a-date'].forEach(id =>document.getElementById(id).value ='');
+ ['a-t1','a-t2','a-wp1','a-wp2','a-date','a-highlight-url'].forEach(id =>document.getElementById(id).value ='');
  document.getElementById('preview-odds-1').textContent ='—';
  document.getElementById('preview-odds-2').textContent ='—';
  document.getElementById('odds-preview-box').style.display ='none';
@@ -3323,7 +3346,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const editBtn = e.target.closest('.admin-edit-btn');
  if (editBtn) {
  const game = (window._adminGamesCache || []).find(g =>g.id === editBtn.dataset.gameId);
- if (game) editGame(game.id, game.t1, game.t2, game.wp1, game.wp2, game.game_date ||'', game.lock_time ||'');
+ if (game) editGame(game.id, game.t1, game.t2, game.wp1, game.wp2, game.game_date ||'', game.lock_time ||'', game.highlight_youtube_id ||'');
  return;
  }
  });
@@ -3344,12 +3367,13 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  // ─── Edit game ───────────────────────────────────────────────
- function editGame(gameId, t1, t2, wp1, wp2, gameDate, lockTime) {
+ function editGame(gameId, t1, t2, wp1, wp2, gameDate, lockTime, highlightYoutubeId) {
  document.getElementById('edit-game-id').value = gameId;
  document.getElementById('edit-t1').value = t1;
  document.getElementById('edit-t2').value = t2;
  document.getElementById('edit-wp1').value = wp1;
  document.getElementById('edit-wp2').value = wp2;
+ document.getElementById('edit-highlight-url').value = highlightYoutubeId ?`https://youtube.com/watch?v=${highlightYoutubeId}` :'';
  // Convert UTC dates back to local datetime-local format
  if (gameDate) {
  const d = new Date(gameDate);
@@ -3388,13 +3412,16 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const wp2 = parseFloat(document.getElementById('edit-wp2').value);
  const date = document.getElementById('edit-date').value;
  const lock = document.getElementById('edit-lock').value;
+ const highlightUrl = document.getElementById('edit-highlight-url').value.trim();
  if (!t1 || !t2) { setError('edit-game-error','Enter both team names.'); return; }
  if (isNaN(wp1) || isNaN(wp2)) { setError('edit-game-error','Enter valid win percentages.'); return; }
+ if (highlightUrl && !extractYouTubeId(highlightUrl)) { setError('edit-game-error',"Couldn't find a video ID in that highlights URL."); return; }
  const toUTC = (local) =>local ? new Date(local).toISOString() : null;
  const { error } = await sb.from('games').update({
  t1, t2, wp1, wp2,
  game_date: toUTC(date),
- lock_time: toUTC(lock)
+ lock_time: toUTC(lock),
+ highlight_youtube_id: highlightUrl ?extractYouTubeId(highlightUrl) :null
  }).eq('id', gameId);
  if (error) { setError('edit-game-error', error.message); return; }
  closeModal('edit-game-modal');
