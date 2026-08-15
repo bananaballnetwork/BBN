@@ -1102,6 +1102,29 @@ ${(referred||[]).length ? referred.map(r => `<div class="stat-row"><span class="
  return null;
  }
 
+ // Pulls a start timestamp out of a "copy link at current time" YouTube URL
+ // (?t=93, ?t=93s, or the older ?t=1h2m3s style) - returns whole seconds,
+ // or null if the URL has no timestamp at all.
+ function extractYouTubeStartSeconds(input) {
+ if (!input) return null;
+ const s = input.trim();
+ let raw = null;
+ try {
+ const url = new URL(s);
+ raw = url.searchParams.get('t') || url.searchParams.get('start');
+ } catch(e) {
+ const m = s.match(/[?&](?:t|start)=([^&\s]+)/);
+ if (m) raw = m[1];
+ }
+ if (!raw) return null;
+ if (/^\d+$/.test(raw)) return parseInt(raw); // plain seconds, e.g. "93"
+ const m = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+ if (m && (m[1]||m[2]||m[3])) {
+ return (parseInt(m[1]||'0')*3600) + (parseInt(m[2]||'0')*60) + parseInt(m[3]||'0');
+ }
+ return null;
+ }
+
  let reelsObserver = null;
  let reelsMuted = true; // start muted - browsers block autoplay-with-sound outright, so this is the only way the first video can play at all
  let firstInteractionArmed = false;
@@ -2276,7 +2299,14 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
  }
 
+ // Bumped every time the tab changes. Each async render captures its own
+ // value at the start and checks it again after every await - if it no
+ // longer matches, the person has since switched to a different tab, and
+ // this now-stale render must not overwrite whatever they're looking at.
+ let gameTabToken = 0;
+
  function switchGameTab(tab) {
+ gameTabToken++;
  clearInterval(window._gameplayCountdownInterval);
  document.querySelectorAll('.game-tab-btn').forEach(b =>b.classList.remove('active'));
  document.getElementById('gtab-' + tab).classList.add('active');
@@ -2299,12 +2329,13 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  contentEl.innerHTML = `
 <div class="card" style="padding:0;overflow:hidden">
 <div style="position:relative;width:100%;aspect-ratio:16/9">
-<iframe src="https://www.youtube.com/embed/${escapeAttr(g.highlight_youtube_id)}?rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+<iframe src="https://www.youtube.com/embed/${escapeAttr(g.highlight_youtube_id)}?rel=0&modestbranding=1${g.highlight_start_seconds?'&start='+g.highlight_start_seconds:''}" style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
 </div>
 </div>`;
  }
 
  async function renderPredictionsTab() {
+ const myToken = gameTabToken;
  const g = currentGameDetail;
  const contentEl = document.getElementById('game-tab-content');
  contentEl.innerHTML ='<div class="loading"><span class="spinner"></span>Loading...</div>';
@@ -2318,6 +2349,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const { data } = await sb.from('bets').select('*').eq('user_id', currentUser.id).eq('game_id', g.id).maybeSingle();
  userBet = data;
  }
+ if (myToken !== gameTabToken) return; // switched tabs while this was loading
 
  let bodyHtml ='';
  if (isClosed) {
@@ -2369,20 +2401,23 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function renderGameplayTab() {
+ const myToken = gameTabToken;
  const g = currentGameDetail;
  const contentEl = document.getElementById('game-tab-content');
  contentEl.innerHTML ='<div class="loading"><span class="spinner"></span>Loading gameplay...</div>';
  try {
  const { match, error, notStarted } = await findApiMatch(g);
+ if (myToken !== gameTabToken) return; // switched tabs while this was loading
  if (notStarted) { renderGameCountdown(g, contentEl); return; }
  if (error) { contentEl.innerHTML = `<div class="no-games">${escapeHtml(error)}</div>`; return; }
 
  const game = await fetchBoxScoreGame(match.id);
+ if (myToken !== gameTabToken) return; // switched tabs while this was loading
  window._currentBoxScoreGame = game;
  window._currentBoxScoreGameId = match.id;
  renderGameplayContent(game, contentEl);
  } catch(e) {
- contentEl.innerHTML = `<div class="no-games">Error: ${e.message}</div>`;
+ if (myToken === gameTabToken) contentEl.innerHTML = `<div class="no-games">Error: ${e.message}</div>`;
  }
  }
 
@@ -2474,16 +2509,18 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  async function renderBoxScoreTab() {
+ const myToken = gameTabToken;
  const g = currentGameDetail;
  const contentEl = document.getElementById('game-tab-content');
  contentEl.innerHTML ='<div class="loading"><span class="spinner"></span>Finding box score...</div>';
 
  try {
  const { match, error } = await findApiMatch(g);
+ if (myToken !== gameTabToken) return; // switched tabs while this was loading
  if (error) { contentEl.innerHTML = `<div class="no-games">${escapeHtml(error)}</div>`; return; }
  await showBoxScore(match.id, contentEl);
  } catch(e) {
- contentEl.innerHTML = `<div class="no-games">Error: ${e.message}</div>`;
+ if (myToken === gameTabToken) contentEl.innerHTML = `<div class="no-games">Error: ${e.message}</div>`;
  }
  }
 
@@ -3264,7 +3301,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  if (highlightUrl && !extractYouTubeId(highlightUrl)) { toast("Couldn't find a video ID in that highlights URL — leave it blank or check the link."); return; }
  // Convert local datetime to UTC for storage
  const toUTC = (local) =>local ? new Date(local).toISOString() : null;
- const { error } = await sb.from('games').insert({ t1, t2, wp1, wp2, game_date: toUTC(date), lock_time: toUTC(lock), status:'open', highlight_youtube_id: highlightUrl ?extractYouTubeId(highlightUrl) :null });
+ const { error } = await sb.from('games').insert({ t1, t2, wp1, wp2, game_date: toUTC(date), lock_time: toUTC(lock), status:'open', highlight_youtube_id: highlightUrl ?extractYouTubeId(highlightUrl) :null, highlight_start_seconds: highlightUrl ?extractYouTubeStartSeconds(highlightUrl) :null });
  if (error) { toast('Error adding game:' + error.message); return; }
  ['a-t1','a-t2','a-wp1','a-wp2','a-date','a-highlight-url'].forEach(id =>document.getElementById(id).value ='');
  document.getElementById('preview-odds-1').textContent ='—';
@@ -3349,7 +3386,7 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  const editBtn = e.target.closest('.admin-edit-btn');
  if (editBtn) {
  const game = (window._adminGamesCache || []).find(g =>g.id === editBtn.dataset.gameId);
- if (game) editGame(game.id, game.t1, game.t2, game.wp1, game.wp2, game.game_date ||'', game.lock_time ||'', game.highlight_youtube_id ||'');
+ if (game) editGame(game.id, game.t1, game.t2, game.wp1, game.wp2, game.game_date ||'', game.lock_time ||'', game.highlight_youtube_id ||'', game.highlight_start_seconds);
  return;
  }
  });
@@ -3370,13 +3407,13 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  }
 
  // ─── Edit game ───────────────────────────────────────────────
- function editGame(gameId, t1, t2, wp1, wp2, gameDate, lockTime, highlightYoutubeId) {
+ function editGame(gameId, t1, t2, wp1, wp2, gameDate, lockTime, highlightYoutubeId, highlightStartSeconds) {
  document.getElementById('edit-game-id').value = gameId;
  document.getElementById('edit-t1').value = t1;
  document.getElementById('edit-t2').value = t2;
  document.getElementById('edit-wp1').value = wp1;
  document.getElementById('edit-wp2').value = wp2;
- document.getElementById('edit-highlight-url').value = highlightYoutubeId ?`https://youtube.com/watch?v=${highlightYoutubeId}` :'';
+ document.getElementById('edit-highlight-url').value = highlightYoutubeId ?`https://youtube.com/watch?v=${highlightYoutubeId}${highlightStartSeconds?'&t='+highlightStartSeconds+'s':''}` :'';
  // Convert UTC dates back to local datetime-local format
  if (gameDate) {
  const d = new Date(gameDate);
@@ -3424,7 +3461,8 @@ ${opts.map(([key,text]) =>`<button class="pick-btn trivia-option" id="trivia-opt
  t1, t2, wp1, wp2,
  game_date: toUTC(date),
  lock_time: toUTC(lock),
- highlight_youtube_id: highlightUrl ?extractYouTubeId(highlightUrl) :null
+ highlight_youtube_id: highlightUrl ?extractYouTubeId(highlightUrl) :null,
+ highlight_start_seconds: highlightUrl ?extractYouTubeStartSeconds(highlightUrl) :null
  }).eq('id', gameId);
  if (error) { setError('edit-game-error', error.message); return; }
  closeModal('edit-game-modal');
